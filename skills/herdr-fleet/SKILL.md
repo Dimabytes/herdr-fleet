@@ -92,7 +92,7 @@ Hard rules to put in `00-context.md`:
 ## Watch
 
 One background watcher per agent: `R=... scripts/watch.sh <name> [report-basename] [timeout_s]` with `run_in_background`.
-It exits on DONE (report says `Status: FINAL`, changed after the watcher started, stable 3 min),
+It exits on DONE (report says `Status: FINAL`, changed after the watcher started, stable 15 s; it blocks on `herdr agent wait`, so it wakes within ~20 s),
 IDLE (agent not working, report stable 10 min, not final — nudge it), BLOCKED, GONE, TIMEOUT (default 90 min).
 That wakes you. No polling in between.
 
