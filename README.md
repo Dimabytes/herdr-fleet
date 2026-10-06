@@ -1,3 +1,7 @@
+# PRECONDITION
+
+You need to install https://herdr.dev/ first
+
 # Herdr Fleet
 
 Run many coding agents (Devin, Codex, Cursor, …) in parallel Herdr panes under one orchestrator.
