@@ -79,6 +79,8 @@ $R/work/<name>/        agent scratch scripts and outputs
 $R/work/orchestrator/  your own checks (notes.md)
 ```
 
+Do not put `$R` in `/tmp` or the scratchpad: a reboot wipes them. Use a persistent dir, e.g. the task folder.
+
 Hard rules to put in `00-context.md`:
 
 - you run with auto-approve — no permission prompt will stop you. Never delete, overwrite, or destroy anything you did not create this run: no `rm`, no `mv` onto existing files, no `git clean`/`reset --hard`/`checkout --`, no `kill`/`pkill` outside your own `work/<name>/` processes, no dropping/truncating files, dirs, rows, tables, or branches. If something is in the way, write beside it or stop and report;
