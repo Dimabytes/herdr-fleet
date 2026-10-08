@@ -1,6 +1,6 @@
 #!/bin/zsh
 # usage: [R=<run dir>] prompt.sh <agent> "<text>"
-# Send a follow-up. A working devin queues it ("Press Enter to send queued messages now"), so flush with Enter.
+# Send a follow-up. Some agents (e.g. devin) queue a prompt sent while working ("Press Enter to send queued messages now"), so flush with Enter.
 # command-code (headless): each prompt is a new `cmd -p` run in the agent's pane; R is required to find it.
 N=$1; shift
 if [ -n "${R:-}" ] && [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then

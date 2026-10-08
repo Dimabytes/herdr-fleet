@@ -4,7 +4,7 @@ You need to install https://herdr.dev/ first
 
 # Herdr Fleet
 
-Run many coding agents (Devin, Codex, Cursor, …) in parallel Herdr panes under one orchestrator.
+Run several coding agents in parallel Herdr panes under one orchestrator. It works with any mix of the agent CLIs Herdr supports (Claude, Codex, Cursor, Devin, and others); you only need the ones you have installed.
 Use it to split a big research task, fan out a review, or cross-check one question on different models.
 
 Agents report through files, not chat. Background watchers wake the orchestrator when a report is final.
@@ -21,16 +21,16 @@ npx skills add Dimabytes/skills-lib -g --skill herdr   # Herdr CLI basics, the f
 ## Agents
 
 The skill does not hardcode models. It reads `.herdr-fleet.config.json` in the project root, so each project has its own agents.
-On first launch in a project the skill copies [`agents.example.json`](skills/herdr-fleet/agents.example.json) there. Edit that file when models change; the skill stays the same.
+On first launch in a project the skill copies [`agents.example.json`](skills/herdr-fleet/agents.example.json) there. Edit that file when models change; the skill stays the same. Every agent kind is optional. Model ids drift: [SKILL.md](skills/herdr-fleet/SKILL.md) lists how to check them per CLI.
 
 ```json
 {
   "agents": {
-    "luna": {
+    "codex": {
       "kind": "codex",
-      "model": "gpt-6-luna",
-      "args": ["-c", "model_reasoning_effort=\"max\"", "-c", "service_tier=\"priority\"", "--approve-for-me"],
-      "notes": "Local data and stats, careful cohort definitions. 35 min - 2 h."
+      "model": "gpt-5.6-sol",
+      "args": ["--approve-for-me"],
+      "notes": "Careful analysis, long single-task runs."
     }
   }
 }
@@ -38,7 +38,7 @@ On first launch in a project the skill copies [`agents.example.json`](skills/her
 
 | Field   | Meaning                                                  |
 | ------- | -------------------------------------------------------- |
-| key     | agent name you use in chat: "run it on grok and luna"    |
+| key     | agent name you use in chat: "run it on codex and cursor"    |
 | `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [SKILL.md](skills/herdr-fleet/SKILL.md)) |
 | `model` | passed as `--model <model>`                              |
 | `args`  | extra CLI args, one array item per argv item             |
@@ -49,7 +49,7 @@ On first launch in a project the skill copies [`agents.example.json`](skills/her
 | Script      | What it does                                                         |
 | ----------- | -------------------------------------------------------------------- |
 | `launch.sh` | start an agent from `.herdr-fleet.config.json` in a pane, cwd = run dir |
-| `prompt.sh` | send a task or follow-up; flushes Devin's queued-message Enter       |
+| `prompt.sh` | send a task or follow-up; flushes the queued-message Enter some agents need       |
 | `watch.sh`  | background watcher: exits on `Status: FINAL`, idle, blocked, gone, timeout (raises a herdr notification) |
 | `command-code-run.sh` | runs one headless `cmd -p` task inside a command-code agent's pane |
 | `collect.sh` | run index: every agent's report status in `index.md`; exits 0 only when all are FINAL |

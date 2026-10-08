@@ -197,5 +197,3 @@ After that failed read, ask the agent to write its complete response as Markdown
 ## Spawning agents
 
 When spawning subagents, do not read the response from the terminal. In the prompt, immediately instruct the agent to write its full response to a file.
-
-If you run devin, run it in bypass mode.

@@ -7,7 +7,7 @@
 : ${R:?set R to the run dir}
 zmodload -F zsh/stat b:zstat  # portable size/mtime (BSD and GNU stat flags differ)
 N=$1; F=$R/reports/${2:-$1}.md; T=${3:-5400}
-# say <status line>: print it, and raise a herdr notification so the owner sees it without watching the tab
+# say <status line>: print it, and raise a herdr notification so the user sees it without watching the tab
 say() { echo "$@"; herdr notification show "fleet $N" --body "$*" --sound request >/dev/null 2>&1; }
 final_ok() { [ "$(sed -n 2p $F 2>/dev/null)" = 'Status: FINAL' ]; }  # the contract: line 2
 start=$(date +%s); last=-1; since=$start
