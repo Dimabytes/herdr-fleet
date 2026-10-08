@@ -5,29 +5,22 @@ description: Run several coding agents in parallel through Herdr panes, with eac
 
 # Herdr fleet
 
-Load the `herdr` skill first for CLI basics. Before any `herdr` command: `test "${HERDR_ENV:-}" = 1`. Never run bare `herdr` (it opens the TUI).
+**HARD RULE, STEP 1: load the `herdr` skill (Skill tool) before anything else.** Do it before you read the config, write files, or run any script. The fleet scripts do not replace it: it holds the CLI rules this skill assumes. No exceptions, even if you plan no direct `herdr` calls.
+
+Before any `herdr` command: `test "${HERDR_ENV:-}" = 1`. Never run bare `herdr` (it opens the TUI).
+
+**Session pin.** Several herdr sessions can run at once, and the inherited `HERDR_*` can point to the wrong one (for example, a background job started from a pane in another session). Before the first launch, run `R=$R $S/session.py` from the project dir. It finds this agent's own pane (the agent pane whose cwd is `$PWD` or its nearest parent, in any running session) and pins it in `$R/herdr.env`. Every fleet script loads that file and stops if no single pane matches. Check that the printed pane is yours. If it fails with a tie, write `$R/herdr.env` by hand from the candidates it lists. For your own direct `herdr` calls, prefix `source $R/herdr.env;`.
 
 Scripts: `S` is the `scripts/` directory of this skill, as an absolute path. Installed with `npx skills add -g` it is `~/.agents/skills/herdr-fleet/scripts`; from a repo checkout it is `skills/herdr-fleet/scripts`. Check it exists before you use it. Every `$S/...` below uses it.
 
 ## Agents
 
-The agent list lives in `.herdr-fleet.config.json` in the project root (git top level), not in this skill. Each project has its own. Run `$S/launch.sh` from inside the project repo: on first use it creates the file from `agents.example.json`. Outside a git repo it stops, so the config is never written to the wrong place.
+The agent list lives in `.herdr-fleet.config.json` in the project root (git top level), not in this skill. Each project has its own. Run `$S/launch.sh` from inside the project repo: on first use it creates the file from `herdr-fleet.config.example.json`. Outside a git repo it stops, so the config is never written to the wrong place.
 
-```json
-{
-  "agents": {
-    "codex": {
-      "kind": "codex",
-      "args": ["--approve-for-me"],
-      "notes": "Careful analysis, long single-task runs."
-    }
-  }
-}
-```
 
 | field         | meaning                                                          |
 | ------------- | ---------------------------------------------------------------- |
-| key           | agent name the user says: "run it on codex and cursor"           |
+| key           | agent name the user says: "run it on codex-sol and cursor-grok"  |
 | `kind`        | `herdr agent start --kind` value, or `command-code` (see below)  |
 | `model`       | optional. Passed as `--model <model>`. Omit it to use the CLI's own default |
 | `model_flag`  | optional. Flag used for the model, if the CLI does not take `--model` (`-m` is already used for command-code, opencode, gemini) |
@@ -36,13 +29,12 @@ The agent list lives in `.herdr-fleet.config.json` in the project root (git top 
 
 Read the file before you pick agents. To add or change an agent, edit the file. Every kind is optional: keep only the CLIs the user has installed and logged in to. The shipped example is a starting point, not a recommendation.
 
-### Models: never hardcode, ask the CLI
+### Models: one per entry, checked against the CLI
 
-Model ids change often, so this skill stores none. Three ways to stay current, in order of preference:
+The example has one entry per model, and every entry sets `model`. Ids go stale: if a launch fails on an unknown model, run `$S/models.sh` and fix the config. Two more ways to pick a model:
 
-1. **Omit `model`** (or use an alias such as claude's `sonnet`, which tracks the latest): the CLI picks its current default.
-2. **Choose at launch.** Run `$S/models.sh [kind...]` (no argument: every installed CLI). It asks each CLI for its live list. Filter with `grep -i`. Then launch with `MODEL=<id> $S/launch.sh ...`, which overrides the config for this launch only. When the user names a model ("run it on the newest codex"), resolve it this way yourself.
-3. **Use a bare kind.** `launch.sh <name> $PANE codex` works with no config entry at all: the CLI starts with its own defaults. Add `MODEL=` or extra args as needed.
+1. **Choose at launch.** Run `$S/models.sh [kind...]` (no argument: every installed CLI). It asks each CLI for its live list. Filter with `grep -i`. Then launch with `MODEL=<id> $S/launch.sh ...`, which overrides the config for this launch only. When the user names a model ("run it on the newest codex"), resolve it this way yourself.
+2. **Use a bare kind.** `launch.sh <name> $PANE codex` works with no config entry at all: the CLI starts with its own defaults. Add `MODEL=` or extra args as needed.
 
 `models.sh` covers cursor, codex, devin, command-code, opencode, pi and grok through their listing commands. claude has none (its `--model` takes aliases or full ids, see `claude --help`); for other kinds it points you to `<cli> --help`. `herdr agent start --help` lists every supported `--kind`.
 
@@ -51,10 +43,12 @@ Model ids change often, so this skill stores none. Three ways to stay current, i
 One place for per-kind behaviour. Skip the lines for kinds you do not use.
 
 - **cursor**: `--force --trust` auto-approves. May stop with `Agent stopped retrying` (connection); `prompt.sh <name> continue` resumes it. A new prompt in the same session keeps context.
-- **codex**: `--approve-for-me` routes each command through a reviewer model and the sandbox still confines writes; it is not the `--dangerously-bypass-…` mode. Pass `-c` overrides (reasoning effort, service tier) in `args`; user `config.toml` may set different defaults. Confirm the settings in the welcome card. Self-updates on start (see Gotchas). A new prompt in the same session keeps context.
-- **claude**: `--permission-mode` decides what needs approval. Anything stricter than auto-approve leaves the agent `blocked` on the first prompt; `watch.sh` reports that.
-- **devin**: `--permission-mode bypass` auto-approves, but `DEVIN_PERMISSION_MODE` in the environment overrides argv. Trust the footer: it must say `(bypass permissions on)`; if a permission dialog appears without it, close that pane and start a new one. Never `/new` in a devin pane: it resets the permission mode and the agent hangs on approval. Start a fresh pane per task. A working devin may queue new prompts; `prompt.sh` presses Enter to flush them.
+- **codex**: `--approve-for-me` routes each command through a reviewer model and the sandbox still confines writes; it is not the `--dangerously-bypass-…` mode. Pass `-c` overrides (reasoning effort, service tier) in `args`; user `config.toml` may set different defaults. Confirm the settings in the welcome card. `launch.sh` adds a `-c projects=...trust_level="trusted"` override for the run dir's repo, so codex skips its "Trust this folder?" dialog (session only, not saved). Self-updates on start (see Gotchas). A new prompt in the same session keeps context.
+- **claude**: `--permission-mode auto` lets a classifier approve routine actions and block destructive ones, with no prompt. Stricter modes (`acceptEdits`, `manual`) leave the agent `blocked` on its first shell command; `watch.sh` reports that.
+- **devin**: `--permission-mode bypass` auto-approves, but `DEVIN_PERMISSION_MODE` in the environment overrides argv. Trust the footer: it must say `(bypass permissions on)`; if a permission dialog appears without it, close that pane and start a new one. Never `/new` in a devin pane: it resets the permission mode and the agent hangs on approval. Start a fresh pane per task. A working devin may queue new prompts; `prompt.sh` presses Enter to flush them. A prompt sent right after start can be lost; `prompt.sh` resends once.
 - **command-code**: headless, see the next section.
+
+Permission rule for `args`: if the CLI has a classifier mode, use it (claude `auto`, codex `--approve-for-me`). Otherwise use full auto-approve. A mode that asks the user blocks the run.
 
 Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no approval gate sits between the agent and `rm -rf`. The no-destruction rule in `00-context.md` (see Files, not chat) is required. Do not launch without it. If the harness you run in blocks auto-approve agents, tell the user and ask before you launch.
 
@@ -64,15 +58,15 @@ Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no 
 
 - `launch.sh` only records the pane and args in `$R/work/<name>/`. No herdr agent starts.
 - `prompt.sh <name> "<task>"` writes the task to `$R/work/<name>/prompt-<n>.txt` and runs `command-code-run.sh` in the pane. Run 1 names the session `<name>` (`-n`); later runs resume it (`-r`), so follow-ups keep context.
-- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
-- Use `R=... $S/prompt.sh` (R is required). Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
+- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` written during that run is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
+- Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
 - `--yolo` skips every permission prompt, so the no-destruction rule applies.
 
 ## Layout
 
 - One tab per run, never the caller's tab. Max 10 agents per tab; more → a second tab label. `grid.py` refuses an 11th pane.
 - A run gets its own tab. This overrides the sibling-pane default in the `herdr` skill, which fits single-pane work.
-- `grid.py` reads `$HERDR_WORKSPACE_ID`, which only exists inside a herdr pane.
+- `grid.py` uses the workspace from `$R/herdr.env` (see Session pin), so the tab lands in this agent's own session.
 - Get each agent's pane from `$S/grid.py`, never from a bare `herdr pane split`. Chained splits leave the oldest panes a few rows high.
   - `PANE=$(R=$R $S/grid.py <tab-label> --new)` adds an empty pane to that tab and creates the tab if it is missing. It then re-tiles the tab into an even grid (max 3 per row, oldest first) and prints the pane id.
   - After `herdr pane close`, run `$S/grid.py <tab-label>` so the rest fill the gap.
@@ -85,7 +79,7 @@ Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no 
 ```bash
 PANE=$(R=<run dir> $S/grid.py <tab-label> --new)
 [MODEL=<id>] R=<run dir> $S/launch.sh <name> $PANE <agent|kind> [extra agent args...]
-$S/prompt.sh <name> "<task>"
+R=<run dir> $S/prompt.sh <name> "<task>"
 ```
 
 `launch.sh` cd's the pane to `$R` (stray relative writes land there, not in the code repo), looks up `<agent>` in the config (or accepts a bare kind) and starts it. It does not send a task. For a research run, send the standard prompt:
@@ -114,7 +108,7 @@ $R/work/<name>/        agent scratch scripts and outputs
 $R/work/orchestrator/  your own checks (notes.md)
 ```
 
-Scaffold it once before the first launch: `mkdir -p "$R"/briefs "$R"/reports "$R"/work/orchestrator`. `launch.sh` creates `$R/work/<name>` itself.
+Scaffold it once before the first launch: `mkdir -p "$R"/briefs "$R"/reports "$R"/work/orchestrator && R=$R $S/session.py`. `launch.sh` creates `$R/work/<name>` itself.
 
 Do not put `$R` in `/tmp` or a scratch dir that a reboot wipes. Use a persistent dir, one per task (for example `<project>/runs/<task-slug>`), and reuse it for every agent in that task.
 
