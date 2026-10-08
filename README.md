@@ -21,14 +21,15 @@ npx skills add Dimabytes/skills-lib -g --skill herdr   # Herdr CLI basics, the f
 ## Agents
 
 The skill does not hardcode models. It reads `.herdr-fleet.config.json` in the project root, so each project has its own agents.
-On first launch in a project the skill copies [`agents.example.json`](skills/herdr-fleet/agents.example.json) there. Edit that file when models change; the skill stays the same. Every agent kind is optional. Model ids drift: [SKILL.md](skills/herdr-fleet/SKILL.md) lists how to check them per CLI.
+On first launch in a project the skill copies [`agents.example.json`](skills/herdr-fleet/agents.example.json) there. Every agent kind is optional, and `model` is optional too: omit it to use the CLI's default.
+
+Model ids drift, so nothing is pinned. `scripts/models.sh` asks each installed CLI for its live model list, and `MODEL=<id> launch.sh ...` picks one at launch time. You can also launch a bare kind (`launch.sh <name> <pane> codex`) with no config entry at all.
 
 ```json
 {
   "agents": {
     "codex": {
       "kind": "codex",
-      "model": "gpt-5.6-sol",
       "args": ["--approve-for-me"],
       "notes": "Careful analysis, long single-task runs."
     }
@@ -40,7 +41,7 @@ On first launch in a project the skill copies [`agents.example.json`](skills/her
 | ------- | -------------------------------------------------------- |
 | key     | agent name you use in chat: "run it on codex and cursor"    |
 | `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [SKILL.md](skills/herdr-fleet/SKILL.md)) |
-| `model` | passed as `--model <model>`                              |
+| `model` | optional, passed as `--model <model>`; omit for the CLI default |
 | `args`  | extra CLI args, one array item per argv item             |
 | `notes` | what it is good at; the orchestrator picks agents by it  |
 
@@ -48,7 +49,8 @@ On first launch in a project the skill copies [`agents.example.json`](skills/her
 
 | Script      | What it does                                                         |
 | ----------- | -------------------------------------------------------------------- |
-| `launch.sh` | start an agent from `.herdr-fleet.config.json` in a pane, cwd = run dir |
+| `models.sh` | list the live model ids of each installed agent CLI |
+| `launch.sh` | start an agent (config entry or bare kind, optional `MODEL=`) in a pane, cwd = run dir |
 | `prompt.sh` | send a task or follow-up; flushes the queued-message Enter some agents need       |
 | `watch.sh`  | background watcher: exits on `Status: FINAL`, idle, blocked, gone, timeout (raises a herdr notification) |
 | `command-code-run.sh` | runs one headless `cmd -p` task inside a command-code agent's pane |

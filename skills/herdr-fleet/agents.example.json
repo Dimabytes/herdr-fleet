@@ -2,21 +2,20 @@
   "agents": {
     "cursor": {
       "kind": "cursor",
-      "model": "composer-2.5",
+      "model": "auto",
       "args": ["--force", "--trust"],
       "notes": "Generalist for code reading, search and quick cross-checks. Fast turnaround."
     },
     "codex": {
       "kind": "codex",
-      "model": "gpt-5.6-sol",
       "args": ["--approve-for-me"],
-      "notes": "Careful analysis, data and statistics, long single-task runs. Reviewer model gates each command."
+      "notes": "Careful analysis, data and statistics, long single-task runs. No model set: uses the CLI default. Reviewer model gates each command."
     },
     "claude": {
       "kind": "claude",
       "model": "sonnet",
       "args": ["--permission-mode", "acceptEdits"],
-      "notes": "Writing, review and multi-step reasoning. acceptEdits still asks before shell commands: use a looser mode only for runs you trust."
+      "notes": "Writing, review and multi-step reasoning. The alias tracks the latest sonnet. acceptEdits still asks before shell commands: use a looser mode only for runs you trust."
     }
   }
 }

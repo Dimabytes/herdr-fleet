@@ -18,7 +18,6 @@ The agent list lives in `.herdr-fleet.config.json` in the project root (git top 
   "agents": {
     "codex": {
       "kind": "codex",
-      "model": "gpt-5.6-sol",
       "args": ["--approve-for-me"],
       "notes": "Careful analysis, long single-task runs."
     }
@@ -26,25 +25,26 @@ The agent list lives in `.herdr-fleet.config.json` in the project root (git top 
 }
 ```
 
-| field   | meaning                                                          |
-| ------- | ---------------------------------------------------------------- |
-| key     | agent name the user says: "run it on codex and cursor"           |
-| `kind`  | `herdr agent start --kind` value, or `command-code` (see below)  |
-| `model` | passed as `--model <model>`                                      |
-| `args`  | extra CLI args, one array item per argv item                     |
-| `notes` | what it is good at, what to watch, how long it takes; pick by it |
+| field         | meaning                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| key           | agent name the user says: "run it on codex and cursor"           |
+| `kind`        | `herdr agent start --kind` value, or `command-code` (see below)  |
+| `model`       | optional. Passed as `--model <model>`. Omit it to use the CLI's own default |
+| `model_flag`  | optional. Flag used for the model, if the CLI does not take `--model` (`-m` is already used for command-code, opencode, gemini) |
+| `args`        | extra CLI args, one array item per argv item                     |
+| `notes`       | what it is good at, what to watch, how long it takes; pick by it |
 
 Read the file before you pick agents. To add or change an agent, edit the file. Every kind is optional: keep only the CLIs the user has installed and logged in to. The shipped example is a starting point, not a recommendation.
 
-Model ids drift. Check the current ones before you write them:
+### Models: never hardcode, ask the CLI
 
-- cursor: `cursor-agent --list-models`
-- claude: `claude --help` (`--model` takes an alias such as `sonnet` or a full id)
-- codex: `codex debug models`
-- devin: `devin models list`
-- command-code: `cmd --list-models`
+Model ids change often, so this skill stores none. Three ways to stay current, in order of preference:
 
-`herdr agent start --help` lists every supported `--kind`.
+1. **Omit `model`** (or use an alias such as claude's `sonnet`, which tracks the latest): the CLI picks its current default.
+2. **Choose at launch.** Run `$S/models.sh [kind...]` (no argument: every installed CLI). It asks each CLI for its live list. Filter with `grep -i`. Then launch with `MODEL=<id> $S/launch.sh ...`, which overrides the config for this launch only. When the user names a model ("run it on the newest codex"), resolve it this way yourself.
+3. **Use a bare kind.** `launch.sh <name> $PANE codex` works with no config entry at all: the CLI starts with its own defaults. Add `MODEL=` or extra args as needed.
+
+`models.sh` covers cursor, codex, devin, command-code, opencode, pi and grok through their listing commands. claude has none (its `--model` takes aliases or full ids, see `claude --help`); for other kinds it points you to `<cli> --help`. `herdr agent start --help` lists every supported `--kind`.
 
 ### Kind notes
 
@@ -84,11 +84,11 @@ Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no 
 
 ```bash
 PANE=$(R=<run dir> $S/grid.py <tab-label> --new)
-R=<run dir> $S/launch.sh <name> $PANE <agent> [extra agent args...]
+[MODEL=<id>] R=<run dir> $S/launch.sh <name> $PANE <agent|kind> [extra agent args...]
 $S/prompt.sh <name> "<task>"
 ```
 
-`launch.sh` cd's the pane to `$R` (stray relative writes land there, not in the code repo), looks up `<agent>` and starts it. It does not send a task. For a research run, send the standard prompt:
+`launch.sh` cd's the pane to `$R` (stray relative writes land there, not in the code repo), looks up `<agent>` in the config (or accepts a bare kind) and starts it. It does not send a task. For a research run, send the standard prompt:
 
 ```text
 You are agent '<name>'. Read fully: $R/00-context.md, then $R/briefs/<name>.md. Do the brief. Write the full report to $R/reports/<name>.md (file, not chat; update it as you go). Scratch files go to $R/work/<name>/. When the report is complete, make its line 2 exactly: Status: FINAL. Then reply with only the report path.
