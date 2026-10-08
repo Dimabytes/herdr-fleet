@@ -1,22 +1,34 @@
-# PRECONDITION
-
-You need to install https://herdr.dev/ first
-
 # Herdr Fleet
 
-Run several coding agents in parallel Herdr panes under one orchestrator. It works with any mix of the agent CLIs Herdr supports (Claude, Codex, Cursor, Devin, and others); you only need the ones you have installed.
+Run several coding agents in parallel [Herdr](https://herdr.dev/) panes under one orchestrator. Herdr is a terminal multiplexer for coding agents. This repo is an agent skill: a `SKILL.md` with scripts that teaches your agent (Claude Code, Codex, and others) a new workflow.
+
+It works with any mix of the agent CLIs Herdr supports (Claude, Codex, Cursor, Devin, and others); you only need the ones you have installed.
 Use it to split a big research task, fan out a review, or cross-check one question on different models.
 
 Agents report through files, not chat. Background watchers wake the orchestrator when a report is final.
 
+## Requirements
+
+- macOS or Linux. Windows is not supported: the scripts are zsh.
+- [Herdr](https://herdr.dev/), `zsh`, `python3`
+- Node.js 18+ for the [Skills CLI](https://github.com/vercel-labs/skills) (`npx skills`)
+- at least one agent CLI that Herdr supports, installed and logged in
+
 ## Install
 
-Install via the [Skills CLI](https://github.com/vercel-labs/skills) (`npx skills`). Requires **Node.js 18+**, `herdr`, `python3`, `zsh`.
-
 ```bash
-npx skills add Dimabytes/herdr-fleet -g --skill '*'
-npx skills add Dimabytes/skills-lib -g --skill herdr   # Herdr CLI basics, the fleet loads it first
+npx skills add herdrdev/herdr -g --skill herdr # official Herdr skill, the fleet loads it first
+npx skills add Dimabytes/herdr-fleet -g --skill herdr-fleet
 ```
+
+## Quickstart
+
+1. Run `herdr` in your project, then start your agent in a pane (for example `claude`).
+2. Ask it: "use herdr-fleet: review this repo on claude-opus, codex-sol and cursor-grok, then compare the reports".
+3. On first launch the skill creates `.herdr-fleet.config.json` in the project root. Edit it to keep only your agents.
+
+> [!WARNING]
+> Fleet agents usually run with auto-approve: cursor `--force` (in the example config), devin `--permission-mode bypass`, command-code `--yolo`. No approval prompt stops these agents before a destructive command. The skill gives each agent a no-destruction rule, but it is an instruction, not a sandbox. Remove these flags if you do not accept that risk.
 
 ## Agents
 
