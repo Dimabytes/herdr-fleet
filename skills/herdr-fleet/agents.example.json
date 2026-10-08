@@ -1,22 +1,21 @@
 {
   "agents": {
-    "grok": {
+    "cursor": {
       "kind": "cursor",
-      "model": "grok-4.7-high",
-      "args": ["--force", "--trust", "--sandbox", "disabled"],
-      "notes": "Protocols, endpoints, code reading, exact numbers. 15-30 min per deep task. Add --add-dir <code repo> at launch."
+      "model": "auto",
+      "args": ["--force", "--trust"],
+      "notes": "Generalist for code reading, search and quick cross-checks. Fast turnaround."
     },
-    "luna": {
+    "codex": {
       "kind": "codex",
-      "model": "gpt-6-luna",
-      "args": ["-c", "model_reasoning_effort=\"max\"", "-c", "service_tier=\"priority\"", "--approve-for-me"],
-      "notes": "Local data and stats, careful cohort definitions, 0 refuted claims in 6 tasks. Slow on big tapes: 35 min - 2 h."
+      "args": ["--approve-for-me"],
+      "notes": "Careful analysis, data and statistics, long single-task runs. No model set: uses the CLI default. Reviewer model gates each command."
     },
-    "swe-max": {
-      "kind": "devin",
-      "model": "swe-2-max",
-      "args": ["--permission-mode", "bypass"],
-      "notes": "Web research, browser reverse engineering (signed APIs, protobuf over MQTT), Discord digging. Most wrong claims came from devins: re-check its numbers. 15 min - 2.5 h."
+    "claude": {
+      "kind": "claude",
+      "model": "sonnet",
+      "args": ["--permission-mode", "acceptEdits"],
+      "notes": "Writing, review and multi-step reasoning. The alias tracks the latest sonnet. acceptEdits still asks before shell commands: use a looser mode only for runs you trust."
     }
   }
 }

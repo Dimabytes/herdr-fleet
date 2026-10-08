@@ -19,6 +19,7 @@ if tab is None:
 mine = [p for p in h("pane", "list")["panes"] if p.get("tab_id") == tab]
 first = mine[0]["pane_id"]
 if new:
+    if len(mine) >= 10: sys.exit(f"tab {label} already has 10 panes: use another tab label")
     print(h("pane", "split", first, "--direction", "down", "--cwd", cwd, "--no-focus")["pane"]["pane_id"])
     mine = [p for p in h("pane", "list")["panes"] if p.get("tab_id") == tab]
 ids = [p["pane_id"] for p in sorted(mine, key=lambda p: p["terminal_id"])]  # terminal ids grow with creation time
