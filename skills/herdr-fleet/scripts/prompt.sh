@@ -16,7 +16,9 @@ if [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then
   echo "command-code run $n started; wait with watch.sh"
   exit 0
 fi
-herdr agent prompt $N "$*" >/dev/null || { echo "prompt failed for $N (see error above)" >&2; exit 1; }
+# a TUI that is still loading can drop a prompt (seen with devin); --wait reports it as agent_prompt_stalled, so resend once
+send() { herdr agent prompt $N "$*" --wait --until working --until blocked --timeout 20000 >/dev/null; }
+send "$@" || { sleep 5; send "$@"; } || { echo "prompt failed for $N (see error above)" >&2; exit 1; }
 sleep 4
 herdr agent read $N --source recent-unwrapped --lines 15 | grep -q 'send queued messages' && herdr agent send-keys $N enter >/dev/null
 herdr agent get $N | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["agent"]["agent_status"])'

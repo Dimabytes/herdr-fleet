@@ -28,8 +28,12 @@ if [ $A[1] = command-code ]; then
   echo "start $N command-code (headless, no agent started). Send the task with prompt.sh."
   exit 0
 fi
-start() { herdr agent start $N --kind $A[1] --pane $PANE --timeout 90000 -- $A[2,-1] "$@" \
-  | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d.get("result"); print("start", r["agent"]["name"], r["argv"]) if r else (print("ERR", d), sys.exit(1))'; }
+# codex asks "Trust this folder?" for a new git repo and blocks the start. Trust the run dir's repo for this session only (not saved).
+[ $A[1] = codex ] && A+=(-c "projects={\"$(git -C $R rev-parse --show-toplevel 2>/dev/null || print -r -- ${R:A})\"={trust_level=\"trusted\"}}")
+# herdr prints errors as JSON on stderr, so read both streams.
+start() { herdr agent start $N --kind $A[1] --pane $PANE --timeout 90000 -- $A[2,-1] "$@" 2>&1 \
+  | python3 -c 'import json,sys; s=sys.stdin.read(); r=json.loads(s).get("result") if s.startswith("{") else None
+print("start", r["agent"]["name"], r["argv"]) if r else sys.exit("ERR " + s.strip() + ("\nagent is stuck in a startup dialog, see: herdr agent read " + sys.argv[1] if "agent_not_ready" in s else ""))' $N; }
 start "$@" || exit 1
 # An agent CLI can self-update on start and exit ("Please restart Codex"). Retry once if it is gone.
 sleep 8; herdr agent get $N >/dev/null 2>&1 || { echo "agent $N exited after start, restarting once"; start "$@" || exit 1; }
