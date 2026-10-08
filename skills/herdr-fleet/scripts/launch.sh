@@ -5,6 +5,7 @@
 # The model is optional: MODEL=<id> overrides the config, and with no model at all the CLI picks its default.
 # Find current ids with models.sh. Starts: <kind> [--model <model>] <config args> <extra args>. Send the task with prompt.sh.
 : ${R:?set R to the run dir}
+E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
 set -o pipefail  # a failed herdr start must fail the script, not just print ERR
 TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "run launch.sh from inside the project repo (the config lives at its top level)" >&2; exit 1; }
 CFG=$TOP/.herdr-fleet.config.json

@@ -4,6 +4,7 @@
 # Stops only processes whose command line contains $R/work/<name>/, and closes only the pane of an agent named in
 # this run. Never closes the orchestrator's own pane ($HERDR_PANE_ID). Re-tile the tab with grid.py afterwards.
 : ${R:?set R to the run dir}
+E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
 ACT=0; [ "$1" = --close ] && { ACT=1; shift; }
 names=("$@")
 if [ ${#names} -eq 0 ]; then for d in $R/work/*(/N); do [ ${d:t} = orchestrator ] || names+=(${d:t}); done; fi

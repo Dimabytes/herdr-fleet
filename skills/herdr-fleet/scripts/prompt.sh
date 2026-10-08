@@ -1,9 +1,11 @@
 #!/bin/zsh
-# usage: [R=<run dir>] prompt.sh <agent> "<text>"
+# usage: R=<run dir> prompt.sh <agent> "<text>"
 # Send a follow-up. Some agents (e.g. devin) queue a prompt sent while working ("Press Enter to send queued messages now"), so flush with Enter.
-# command-code (headless): each prompt is a new `cmd -p` run in the agent's pane; R is required to find it.
+# command-code (headless): each prompt is a new `cmd -p` run in the agent's pane.
+: ${R:?set R to the run dir}
+E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
 N=$1; shift
-if [ -n "${R:-}" ] && [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then
+if [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then
   W=$R/work/$N
   until mkdir $W/.lock 2>/dev/null; do sleep 1; done  # two prompts at once must not take the same run number
   trap 'rmdir $W/.lock 2>/dev/null' EXIT

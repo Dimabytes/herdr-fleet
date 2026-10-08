@@ -9,6 +9,8 @@ description: Run several coding agents in parallel through Herdr panes, with eac
 
 Before any `herdr` command: `test "${HERDR_ENV:-}" = 1`. Never run bare `herdr` (it opens the TUI).
 
+**Session pin.** Several herdr sessions can run at once, and the inherited `HERDR_*` can point to the wrong one (for example, a background job started from a pane in another session). Before the first launch, run `R=$R $S/session.py` from the project dir. It finds this agent's own pane (the agent pane whose cwd is `$PWD` or its nearest parent, in any running session) and pins it in `$R/herdr.env`. Every fleet script loads that file and stops if no single pane matches. Check that the printed pane is yours. If it fails with a tie, write `$R/herdr.env` by hand from the candidates it lists. For your own direct `herdr` calls, prefix `source $R/herdr.env;`.
+
 Scripts: `S` is the `scripts/` directory of this skill, as an absolute path. Installed with `npx skills add -g` it is `~/.agents/skills/herdr-fleet/scripts`; from a repo checkout it is `skills/herdr-fleet/scripts`. Check it exists before you use it. Every `$S/...` below uses it.
 
 ## Agents
@@ -57,14 +59,14 @@ Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no 
 - `launch.sh` only records the pane and args in `$R/work/<name>/`. No herdr agent starts.
 - `prompt.sh <name> "<task>"` writes the task to `$R/work/<name>/prompt-<n>.txt` and runs `command-code-run.sh` in the pane. Run 1 names the session `<name>` (`-n`); later runs resume it (`-r`), so follow-ups keep context.
 - `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
-- Use `R=... $S/prompt.sh` (R is required). Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
+- Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
 - `--yolo` skips every permission prompt, so the no-destruction rule applies.
 
 ## Layout
 
 - One tab per run, never the caller's tab. Max 10 agents per tab; more → a second tab label. `grid.py` refuses an 11th pane.
 - A run gets its own tab. This overrides the sibling-pane default in the `herdr` skill, which fits single-pane work.
-- `grid.py` reads `$HERDR_WORKSPACE_ID`, which only exists inside a herdr pane.
+- `grid.py` uses the workspace from `$R/herdr.env` (see Session pin), so the tab lands in this agent's own session.
 - Get each agent's pane from `$S/grid.py`, never from a bare `herdr pane split`. Chained splits leave the oldest panes a few rows high.
   - `PANE=$(R=$R $S/grid.py <tab-label> --new)` adds an empty pane to that tab and creates the tab if it is missing. It then re-tiles the tab into an even grid (max 3 per row, oldest first) and prints the pane id.
   - After `herdr pane close`, run `$S/grid.py <tab-label>` so the rest fill the gap.
@@ -77,7 +79,7 @@ Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no 
 ```bash
 PANE=$(R=<run dir> $S/grid.py <tab-label> --new)
 [MODEL=<id>] R=<run dir> $S/launch.sh <name> $PANE <agent|kind> [extra agent args...]
-$S/prompt.sh <name> "<task>"
+R=<run dir> $S/prompt.sh <name> "<task>"
 ```
 
 `launch.sh` cd's the pane to `$R` (stray relative writes land there, not in the code repo), looks up `<agent>` in the config (or accepts a bare kind) and starts it. It does not send a task. For a research run, send the standard prompt:
@@ -106,7 +108,7 @@ $R/work/<name>/        agent scratch scripts and outputs
 $R/work/orchestrator/  your own checks (notes.md)
 ```
 
-Scaffold it once before the first launch: `mkdir -p "$R"/briefs "$R"/reports "$R"/work/orchestrator`. `launch.sh` creates `$R/work/<name>` itself.
+Scaffold it once before the first launch: `mkdir -p "$R"/briefs "$R"/reports "$R"/work/orchestrator && R=$R $S/session.py`. `launch.sh` creates `$R/work/<name>` itself.
 
 Do not put `$R` in `/tmp` or a scratch dir that a reboot wipes. Use a persistent dir, one per task (for example `<project>/runs/<task-slug>`), and reuse it for every agent in that task.
 

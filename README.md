@@ -70,6 +70,7 @@ Model ids drift. `scripts/models.sh` asks each installed CLI for its live model 
 | `collect.sh` | run index: every agent's report status in `index.md`; exits 0 only when all are FINAL |
 | `cleanup.sh` | dry run by default; `--close` stops a run's processes and closes its panes |
 | `grid.py`   | tiles a run's panes into an even grid (max 10 per tab) |
+| `session.py` | finds the orchestrator's own herdr session and pane by cwd, pins it in `$R/herdr.env`; the other scripts load it |
 
 ## License
 

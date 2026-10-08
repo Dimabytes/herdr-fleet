@@ -5,6 +5,7 @@
 # IDLE: agent not working and report unchanged 600 s without that -> nudge it (queued prompt? WIP report?).
 # Exits early on BLOCKED / GONE, or TIMEOUT.
 : ${R:?set R to the run dir}
+E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
 zmodload -F zsh/stat b:zstat  # portable size/mtime (BSD and GNU stat flags differ)
 N=$1; F=$R/reports/${2:-$1}.md; T=${3:-5400}
 # say <status line>: print it, and raise a herdr notification so the user sees it without watching the tab

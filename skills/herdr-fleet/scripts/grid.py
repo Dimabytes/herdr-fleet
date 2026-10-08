@@ -6,6 +6,11 @@
 import fcntl, json, math, os, subprocess, sys, tempfile
 
 label, new = sys.argv[1], "--new" in sys.argv[2:]
+# this agent's own herdr session, pinned in $R/herdr.env: inherited HERDR_* can point to another session
+env = subprocess.run([os.path.join(os.path.dirname(os.path.abspath(__file__)), "session.py")], capture_output=True, text=True)
+sys.stderr.write(env.stderr)
+env.returncode == 0 or sys.exit(env.returncode)
+os.environ.update(kv.split("=", 1) for kv in env.stdout.split()[1:])
 ws, cwd = os.environ["HERDR_WORKSPACE_ID"], os.environ.get("R", os.getcwd())
 lock = open(os.path.join(tempfile.gettempdir(), f"herdr-fleet-grid-{ws}-{label}.lock"), "w")
 fcntl.flock(lock, fcntl.LOCK_EX)  # several watchers may close panes at once
