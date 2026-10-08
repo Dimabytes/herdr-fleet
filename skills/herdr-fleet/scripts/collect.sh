@@ -2,7 +2,7 @@
 # usage: R=<run dir> collect.sh
 # One table for the whole run: every agent in work/ and every report in reports/, with line-2 status.
 # Writes $R/index.md and prints the same table. Exit 0 only when every agent has a FINAL report, so it can gate a merge.
-: ${R:?set R to the run dir}
+: ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
 OUT=$R/index.md
 {
   echo "# Run index: ${R:t}"
@@ -10,7 +10,7 @@ OUT=$R/index.md
   echo "| agent | status | bytes | title (line 1) |"
   echo "| --- | --- | --- | --- |"
   names=()
-  for d in $R/work/*(/N); do names+=(${d:t}); done
+  for d in $R/work/*(/N); do [ ${d:t} = orchestrator ] || names+=(${d:t}); done  # orchestrator is not an agent
   for f in $R/reports/*.md(N); do n=${f:t:r}; [[ " ${names[*]} " == *" $n "* ]] || names+=($n); done
   pending=0
   for n in $names; do

@@ -2,7 +2,7 @@
 # usage: R=<run dir> prompt.sh <agent> "<text>"
 # Send a follow-up. Some agents (e.g. devin) queue a prompt sent while working ("Press Enter to send queued messages now"), so flush with Enter.
 # command-code (headless): each prompt is a new `cmd -p` run in the agent's pane.
-: ${R:?set R to the run dir}
+: ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
 E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
 N=$1; shift
 if [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then
@@ -11,8 +11,8 @@ if [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then
   trap 'rmdir $W/.lock 2>/dev/null' EXIT
   n=$(( $(cat $W/run 2>/dev/null || echo 0) + 1 ))
   print -r -- "$*" > $W/prompt-$n.txt
-  herdr pane run $(cat $W/pane) "R=${(q)R} ${(q)${0:A:h}}/command-code-run.sh $N $n" >/dev/null || { echo "pane gone: run $n not started" >&2; exit 1; }
-  print -r -- $n > $W/run
+  print -r -- $n > $W/run  # before the run starts: a watcher must not take the previous run's exit file for this one
+  herdr pane run $(cat $W/pane) "R=${(q)R} ${(q)${0:A:h}}/command-code-run.sh $N $n" >/dev/null || { print -r -- $((n-1)) > $W/run; echo "pane gone: run $n not started" >&2; exit 1; }
   echo "command-code run $n started; wait with watch.sh"
   exit 0
 fi

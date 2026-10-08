@@ -58,7 +58,7 @@ Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no 
 
 - `launch.sh` only records the pane and args in `$R/work/<name>/`. No herdr agent starts.
 - `prompt.sh <name> "<task>"` writes the task to `$R/work/<name>/prompt-<n>.txt` and runs `command-code-run.sh` in the pane. Run 1 names the session `<name>` (`-n`); later runs resume it (`-r`), so follow-ups keep context.
-- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
+- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` written during that run is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
 - Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
 - `--yolo` skips every permission prompt, so the no-destruction rule applies.
 

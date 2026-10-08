@@ -3,14 +3,16 @@
 # Re-tiles every pane of tab <tab-label> in $HERDR_WORKSPACE_ID into an even grid: max 3 per row, oldest pane first.
 # --new first adds an empty shell pane (creates the tab in $R if it is missing) and prints its id for launch.sh.
 # herdr has no re-tile command: panes are parked in a temp tab and moved back. Agents keep running.
-import fcntl, json, math, os, subprocess, sys, tempfile
+import fcntl, json, math, os, shlex, subprocess, sys, tempfile
 
 label, new = sys.argv[1], "--new" in sys.argv[2:]
+"R" in os.environ and os.environ.update(R=os.path.abspath(os.environ["R"]))  # herdr --cwd needs an absolute path
 # this agent's own herdr session, pinned in $R/herdr.env: inherited HERDR_* can point to another session
 env = subprocess.run([os.path.join(os.path.dirname(os.path.abspath(__file__)), "session.py")], capture_output=True, text=True)
 sys.stderr.write(env.stderr)
 env.returncode == 0 or sys.exit(env.returncode)
-os.environ.update(kv.split("=", 1) for kv in env.stdout.split()[1:])
+# parse like the shell scripts' eval: a hand-written pin may have several export lines, quotes or comments
+os.environ.update(kv.split("=", 1) for kv in shlex.split(env.stdout, comments=True) if "=" in kv)
 ws, cwd = os.environ["HERDR_WORKSPACE_ID"], os.environ.get("R", os.getcwd())
 lock = open(os.path.join(tempfile.gettempdir(), f"herdr-fleet-grid-{ws}-{label}.lock"), "w")
 fcntl.flock(lock, fcntl.LOCK_EX)  # several watchers may close panes at once

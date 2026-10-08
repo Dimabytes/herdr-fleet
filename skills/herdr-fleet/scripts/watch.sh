@@ -4,7 +4,7 @@
 # DONE: report has a "Status: FINAL" line, changed after this watcher started, unchanged 15 s, agent not working.
 # IDLE: agent not working and report unchanged 600 s without that -> nudge it (queued prompt? WIP report?).
 # Exits early on BLOCKED / GONE, or TIMEOUT.
-: ${R:?set R to the run dir}
+: ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
 E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
 zmodload -F zsh/stat b:zstat  # portable size/mtime (BSD and GNU stat flags differ)
 N=$1; F=$R/reports/${2:-$1}.md; T=${3:-5400}
@@ -19,8 +19,9 @@ if [ -f $R/work/$N/kind ] && [ "$(cat $R/work/$N/kind)" = command-code ]; then
     herdr pane get "$(cat $R/work/$N/pane 2>/dev/null)" >/dev/null 2>&1 || { say "GONE $N (its pane closed mid-run)"; exit 0; }
     if [ -f $R/work/$N/exit-$run ]; then
       code=$(cat $R/work/$N/exit-$run)
-      [ "${code:-x}" = 0 ] && final_ok && { say "DONE $N exit=$code"; exit 0; }
-      say "EXITED $N exit=$code (non-zero, or no Status: FINAL; check the report, then prompt.sh to continue)"; exit 0
+      # the report must be written during this run: a FINAL left from the previous run is not an answer to this one
+      [ "${code:-x}" = 0 ] && final_ok && [ ! $R/work/$N/prompt-$run.txt -nt $F ] && { say "DONE $N exit=$code"; exit 0; }
+      say "EXITED $N exit=$code (non-zero, or no Status: FINAL written in this run; check the report, then prompt.sh to continue)"; exit 0
     fi
     sleep 10
   done
