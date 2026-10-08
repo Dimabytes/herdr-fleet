@@ -7,9 +7,11 @@ description: Run many coding agents in parallel through Herdr (devin, codex, cur
 
 Load the `herdr` skill first for CLI basics. Before any `herdr` command: `test "${HERDR_ENV:-}" = 1`. Never run bare `herdr` (it opens the TUI).
 
+Scripts: `S` is the `scripts/` directory of this skill, as an absolute path. Installed with `npx skills add -g` it is `~/.agents/skills/herdr-fleet/scripts`; from a repo checkout it is `skills/herdr-fleet/scripts`. Check it exists before you use it. Every `$S/...` below uses it.
+
 ## Agents
 
-The agent list lives in `.herdr-fleet.config.json` in the project root (git top level), not in this skill. Each project has its own. Run `scripts/launch.sh` from the project: on first use it creates the file from `agents.example.json`.
+The agent list lives in `.herdr-fleet.config.json` in the project root (git top level), not in this skill. Each project has its own. Run `$S/launch.sh` from inside the project repo: on first use it creates the file from `agents.example.json`. Outside a git repo it stops, so the config is never written to the wrong place.
 
 ```json
 {
@@ -32,14 +34,26 @@ The agent list lives in `.herdr-fleet.config.json` in the project root (git top 
 | `args`  | extra CLI args, one array item per argv item                     |
 | `notes` | what it is good at, what to watch, how long it takes; pick by it |
 
-Read the file before you pick agents. To add or change an agent, edit the file. Model ids drift. Check: `cursor-agent --list-models`, `devin models list | grep -oE 'swe-2[a-z0-9-]*' | sort -u`, `codex debug models`.
+Read the file before you pick agents. To add or change an agent, edit the file. Model ids drift. Check: `cursor-agent --list-models`, `devin models list | grep -oE 'swe-2[a-z0-9-]*' | sort -u`, `codex debug models`, `cmd --list-models`.
+
+### command-code (headless)
+
+`kind: "command-code"` is not a herdr agent kind, so herdr cannot see its state. Instead, each task is one `cmd -p` run in the agent's pane:
+
+- `launch.sh` only records the pane and args in `$R/work/<name>/`. No herdr agent starts.
+- `prompt.sh <name> "<task>"` writes the task to `$R/work/<name>/prompt-<n>.txt` and runs `command-code-run.sh` in the pane. Run 1 names the session `<name>` (`-n`); later runs resume it (`-r`), so follow-ups keep context.
+- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (documented in `cmd --help`). Other non-zero codes are reported as-is.
+- Use `R=... $S/prompt.sh` (R is required). Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
+- Auto-approve like devin and cursor: `--yolo` skips every permission prompt, so the no-destruction rule applies.
 
 ## Layout
 
-- One tab per run, never the caller's tab. Max 10 agents per tab; more → a second tab label.
-- Get each agent's pane from `scripts/grid.py`, never from a bare `herdr pane split`. Chained splits leave the oldest panes a few rows high.
-  - `PANE=$(R=$R scripts/grid.py <tab-label> --new)` adds an empty pane to that tab and creates the tab if it is missing. It then re-tiles the tab into an even grid (max 3 per row, oldest first) and prints the pane id.
-  - After `herdr pane close`, run `scripts/grid.py <tab-label>` so the rest fill the gap.
+- One tab per run, never the caller's tab. Max 10 agents per tab; more → a second tab label. `grid.py` refuses an 11th pane.
+- This one-tab-per-run layout is the topology the user asked for. It overrides the sibling-pane default in the `herdr` skill.
+- `grid.py` reads `$HERDR_WORKSPACE_ID`, which only exists inside a herdr pane.
+- Get each agent's pane from `$S/grid.py`, never from a bare `herdr pane split`. Chained splits leave the oldest panes a few rows high.
+  - `PANE=$(R=$R $S/grid.py <tab-label> --new)` adds an empty pane to that tab and creates the tab if it is missing. It then re-tiles the tab into an even grid (max 3 per row, oldest first) and prints the pane id.
+  - After `herdr pane close`, run `$S/grid.py <tab-label>` so the rest fill the gap.
 - Do not keep an empty "anchor" shell pane in the tab: it takes a grid cell. The tab closes with its last pane and `--new` recreates it.
 - Always `--no-focus`. Parse pane ids from the JSON.
 - Names: `[a-z][a-z0-9_-]{0,31}`.
@@ -47,9 +61,9 @@ Read the file before you pick agents. To add or change an agent, edit the file. 
 ## Launch
 
 ```bash
-PANE=$(R=<run dir> scripts/grid.py <tab-label> --new)
-R=<run dir> scripts/launch.sh <name> $PANE <agent> [extra agent args...]
-scripts/prompt.sh <name> "<task>"
+PANE=$(R=<run dir> $S/grid.py <tab-label> --new)
+R=<run dir> $S/launch.sh <name> $PANE <agent> [extra agent args...]
+$S/prompt.sh <name> "<task>"
 ```
 
 `launch.sh` cd's the pane to `$R` (stray relative writes land there, not in the code repo), looks up `<agent>` and starts it. It does not send a task. For a research run, send the standard prompt:
@@ -65,8 +79,8 @@ You are agent '<name>'. Read fully: $R/00-context.md, then $R/briefs/<name>.md. 
 - **codex fast tier** = `service_tier="priority"`. User `config.toml` sets `"default"`, so pin it with `-c`. Verify in the welcome card: `GPT-6-Luna max fast`. `--approve-for-me` is NOT `--dangerously-bypass-…` (YOLO).
 - **Devin ignores** `--permission-mode smart` when the env has `DEVIN_PERMISSION_MODE=bypass`. Trust the footer, not argv: it must say `(bypass permissions on)`. If a permission dialog appears without bypass, close that pane and start a new one with bypass.
 - **Never `/new` on a Devin.** `/new` resets it to accept-edits and it hangs on file-change approval. New task → fresh pane. cursor and codex can take a new prompt in the same session (keeps context).
-- **Follow-ups: use `scripts/prompt.sh`.** Prompting a working devin queues the text; the footer shows `Press Enter to send queued messages now` and herdr may report `done` while it waits. The script presses Enter.
-- `agent_status` alone lies (idle/done while still writing, or done with a half-written report). Completion = `Status: FINAL` in the report (`scripts/watch.sh`).
+- **Follow-ups: use `$S/prompt.sh`.** Prompting a working devin queues the text; the footer shows `Press Enter to send queued messages now` and herdr may report `done` while it waits. The script presses Enter.
+- `agent_status` alone lies (idle/done while still writing, or done with a half-written report). Completion = `Status: FINAL` in the report (`$S/watch.sh`).
 - **Agent CLIs self-update on start** (codex: `Update ran successfully! Please restart Codex.`) and exit. `launch.sh` restarts once if the agent is gone 8 s after start. Always wait with `watch.sh`, not a file-only loop: it reports GONE.
 - **Cursor may stop with** `Agent stopped retrying` (connection). `prompt.sh <name> continue` resumes it.
 - **Shared browser state.** One agent ran `agent-browser close --all` and closed every session, including the owner's logged-in Discord. Every agent uses `--session <name>`; never `close --all`. A logged-in profile (Discord) belongs to one agent only: the profile dir is locked.
@@ -82,7 +96,9 @@ $R/work/<name>/        agent scratch scripts and outputs
 $R/work/orchestrator/  your own checks (notes.md)
 ```
 
-Do not put `$R` in `/tmp` or the scratchpad: a reboot wipes them. Use a persistent dir, e.g. the task folder.
+Scaffold it once before the first launch: `mkdir -p "$R"/briefs "$R"/reports "$R"/work/orchestrator`. `launch.sh` creates `$R/work/<name>` itself.
+
+Do not put `$R` in `/tmp` or the scratchpad: a reboot wipes them. Use a persistent dir, e.g. the task folder. Pick one per task (for example `<project>/runs/<task-slug>`) and reuse it for every agent in that task.
 
 Hard rules to put in `00-context.md`:
 
@@ -96,13 +112,20 @@ Hard rules to put in `00-context.md`:
 
 ## Watch
 
-One background watcher per agent: `R=... scripts/watch.sh <name> [report-basename] [timeout_s]` with `run_in_background`.
-It exits on DONE (report says `Status: FINAL`, changed after the watcher started, stable 15 s; it blocks on `herdr agent wait`, so it wakes within ~20 s),
-IDLE (agent not working, report stable 10 min, not final — nudge it), BLOCKED, GONE, TIMEOUT (default 90 min).
+One background watcher per agent. Start it with the shell tool in background mode (`run_in_background`), never as a foreground loop:
+`R=... $S/watch.sh <name> [report-basename] [timeout_s]`
+It exits on DONE (report says `Status: FINAL`, changed after the watcher started, stable 15 s; it blocks on `herdr agent wait` with a 10 s timeout, so it wakes within ~10 s),
+IDLE (agent not working, report stable 10 min, not final — nudge it), BLOCKED, GONE, TIMEOUT (default 90 min), or EXITED (command-code only).
+Each exit also raises a herdr notification, so the owner sees it without watching the tab.
 That wakes you. No polling in between.
+
+## Clean up
+
+When a run is over, `R=$R $S/cleanup.sh` lists the processes and panes of this run. Add `--close` to stop the processes and close the panes. It resolves each pane by agent name, so panes moved by `grid.py` are still found. It never closes the orchestrator's own pane. Then re-tile the tab with `grid.py` if you keep it.
 
 ## Verify
 
 - Give the most suspicious topic to 2 agents of different models. Overlap finds more. In one run three agents agreed on a source; two devins disagreed on one latency by 15× and only a re-check settled it.
+- `R=$R $S/collect.sh` builds `$R/index.md` from every agent and report: FINAL, WIP, or missing. It exits 0 only when all are FINAL.
 - Re-check every key number yourself with a small script before it goes in the final report. Keep a "refuted" list.
 - Close only panes and tabs you created, and only when the user no longer needs them.

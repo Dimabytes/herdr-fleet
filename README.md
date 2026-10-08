@@ -39,7 +39,7 @@ On first launch in a project the skill copies [`agents.example.json`](skills/her
 | Field   | Meaning                                                  |
 | ------- | -------------------------------------------------------- |
 | key     | agent name you use in chat: "run it on grok and luna"    |
-| `kind`  | `herdr agent start --kind` value                         |
+| `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [SKILL.md](skills/herdr-fleet/SKILL.md)) |
 | `model` | passed as `--model <model>`                              |
 | `args`  | extra CLI args, one array item per argv item             |
 | `notes` | what it is good at; the orchestrator picks agents by it  |
@@ -50,7 +50,11 @@ On first launch in a project the skill copies [`agents.example.json`](skills/her
 | ----------- | -------------------------------------------------------------------- |
 | `launch.sh` | start an agent from `.herdr-fleet.config.json` in a pane, cwd = run dir |
 | `prompt.sh` | send a task or follow-up; flushes Devin's queued-message Enter       |
-| `watch.sh`  | background watcher: exits on `Status: FINAL`, idle, blocked, timeout |
+| `watch.sh`  | background watcher: exits on `Status: FINAL`, idle, blocked, gone, timeout (raises a herdr notification) |
+| `command-code-run.sh` | runs one headless `cmd -p` task inside a command-code agent's pane |
+| `collect.sh` | run index: every agent's report status in `index.md`; exits 0 only when all are FINAL |
+| `cleanup.sh` | dry run by default; `--close` stops a run's processes and closes its panes |
+| `grid.py`   | tiles a run's panes into an even grid (max 10 per tab) |
 
 ## License
 

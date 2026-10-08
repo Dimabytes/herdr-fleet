@@ -17,6 +17,18 @@
       "model": "swe-2-max",
       "args": ["--permission-mode", "bypass"],
       "notes": "Web research, browser reverse engineering (signed APIs, protobuf over MQTT), Discord digging. Most wrong claims came from devins: re-check its numbers. 15 min - 2.5 h."
+    },
+    "haiku": {
+      "kind": "devin",
+      "model": "claude-haiku-5-5-medium",
+      "args": ["--permission-mode", "bypass"],
+      "notes": "Claude Haiku 5.5 on devin: cheap ($0.1 in / $0.5 out per 1M), 1M context, fast. Good for doc review, checklists, API-flag checks. Weaker on deep multi-step reasoning: give it narrow briefs and verify its claims."
+    },
+    "cc": {
+      "kind": "command-code",
+      "model": "moonshotai/kimi-k3",
+      "args": ["--yolo", "--trust", "--skip-onboarding", "--no-auto-update"],
+      "notes": "Command Code, headless (cmd -p, one run per prompt, follow-ups resume the session). Long-horizon coding, 1M context. Not benchmarked in this fleet yet: check its numbers."
     }
   }
 }

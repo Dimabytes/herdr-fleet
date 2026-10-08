@@ -194,8 +194,8 @@ After that failed read, ask the agent to write its complete response as Markdown
 - Never kill the main Herdr process. Use named test sessions for experiments that need an isolated server.
 - CLI server errors are JSON on stderr with exit status 1. CLI syntax errors exit with status 2.
 
-When spawning subagents 
+## Spawning agents
 
-Do not read the response from the terminal. In the prompt, immediately instruct it: write the full response to a file
+When spawning subagents, do not read the response from the terminal. In the prompt, immediately instruct the agent to write its full response to a file.
 
-If you run devin run it in bypass mode
+If you run devin, run it in bypass mode.
