@@ -23,7 +23,7 @@ herdr pane run $PANE "cd ${(q)R}" >/dev/null 2>&1; sleep 1
 if [ $A[1] = command-code ]; then
   # herdr cannot classify command-code's TUI, so it runs headless: one `cmd -p` per task, in this pane (see command-code-run.sh)
   print -r -- command-code > $R/work/$N/kind && print -r -- $PANE > $R/work/$N/pane
-  printf '%s\n' $A[2,-1] > $R/work/$N/args
+  printf '%s\n' $A[2,-1] "$@" > $R/work/$N/args
   echo "start $N command-code (headless, no agent started). Send the task with prompt.sh."
   exit 0
 fi
