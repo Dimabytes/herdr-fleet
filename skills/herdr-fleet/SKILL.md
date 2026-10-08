@@ -36,17 +36,19 @@ Read the file before you pick agents. To add or change an agent, edit the file. 
 
 ## Layout
 
-- Max 10 agents per tab. More than 10 → another tab. Do not squeeze agents into the caller's tab.
-- `herdr tab create --workspace "$HERDR_WORKSPACE_ID" --label <name> --cwd "$R" --no-focus`.
-- 2 columns × 5 rows. `--ratio` is the share the **original** pane keeps:
-  split root `right 0.5`, then each column `down 0.2`, `down 0.25`, `down 0.3333`, `down 0.5`.
+- One tab per run, never the caller's tab. Max 10 agents per tab; more → a second tab label.
+- Get each agent's pane from `scripts/grid.py`, never from a bare `herdr pane split`. Chained splits leave the oldest panes a few rows high.
+  - `PANE=$(R=$R scripts/grid.py <tab-label> --new)` adds an empty pane to that tab and creates the tab if it is missing. It then re-tiles the tab into an even grid (max 3 per row, oldest first) and prints the pane id.
+  - After `herdr pane close`, run `scripts/grid.py <tab-label>` so the rest fill the gap.
+- Do not keep an empty "anchor" shell pane in the tab: it takes a grid cell. The tab closes with its last pane and `--new` recreates it.
 - Always `--no-focus`. Parse pane ids from the JSON.
 - Names: `[a-z][a-z0-9_-]{0,31}`.
 
 ## Launch
 
 ```bash
-R=<run dir> scripts/launch.sh <name> <pane> <agent> [extra agent args...]
+PANE=$(R=<run dir> scripts/grid.py <tab-label> --new)
+R=<run dir> scripts/launch.sh <name> $PANE <agent> [extra agent args...]
 scripts/prompt.sh <name> "<task>"
 ```
 
@@ -65,6 +67,7 @@ You are agent '<name>'. Read fully: $R/00-context.md, then $R/briefs/<name>.md. 
 - **Never `/new` on a Devin.** `/new` resets it to accept-edits and it hangs on file-change approval. New task → fresh pane. cursor and codex can take a new prompt in the same session (keeps context).
 - **Follow-ups: use `scripts/prompt.sh`.** Prompting a working devin queues the text; the footer shows `Press Enter to send queued messages now` and herdr may report `done` while it waits. The script presses Enter.
 - `agent_status` alone lies (idle/done while still writing, or done with a half-written report). Completion = `Status: FINAL` in the report (`scripts/watch.sh`).
+- **Agent CLIs self-update on start** (codex: `Update ran successfully! Please restart Codex.`) and exit. `launch.sh` restarts once if the agent is gone 8 s after start. Always wait with `watch.sh`, not a file-only loop: it reports GONE.
 - **Cursor may stop with** `Agent stopped retrying` (connection). `prompt.sh <name> continue` resumes it.
 - **Shared browser state.** One agent ran `agent-browser close --all` and closed every session, including the owner's logged-in Discord. Every agent uses `--session <name>`; never `close --all`. A logged-in profile (Discord) belongs to one agent only: the profile dir is locked.
 - Agents leave capture processes running. At the end: `pkill -f "$R/work/<name>/"` per agent, and check for relative-path children (`ps -axo pid,command | grep <script>`).

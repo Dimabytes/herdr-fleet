@@ -19,7 +19,9 @@ except Exception: print("gone")')
   [ "$st" = gone ] && { echo "GONE $N size=$size"; exit 0; }
   if [ "$st" != working ]; then
     [ $final = 1 ] && [ $mtime -ge $start ] && [ $((now-since)) -ge 15 ] && { echo "DONE $N size=$size"; exit 0; }
-    [ $((now-since)) -ge 600 ] && { echo "IDLE $N size=$size final=$final"; exit 0; }
+    # herdr can report idle/done while the agent waits on a long shell command; trust its on-screen busy marker
+    busy=0; herdr agent read $N --source visible --lines 30 2>/dev/null | grep -qE 'ctrl\+c to stop|esc to interrupt|while it works' && busy=1
+    [ $busy = 0 ] && [ $((now-since)) -ge 600 ] && { echo "IDLE $N size=$size final=$final"; exit 0; }
     sleep 5  # wait returns at once on an idle agent; do not spin
   fi
   [ $((now-start)) -ge $T ] && { echo "TIMEOUT $N size=$size status=$st"; exit 0; }
