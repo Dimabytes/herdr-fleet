@@ -1,0 +1,46 @@
+{
+  "agents": {
+    "claude-opus": {
+      "kind": "claude",
+      "model": "opus",
+      "args": ["--permission-mode", "auto"],
+      "notes": "Most capable Claude: deep review, architecture, multi-step reasoning. The alias tracks the latest opus. auto: a classifier approves routine actions and blocks destructive ones, no prompts."
+    },
+    "claude-sonnet": {
+      "kind": "claude",
+      "model": "sonnet",
+      "args": ["--permission-mode", "auto"],
+      "notes": "Faster Claude for writing, review and routine cross-checks. The alias tracks the latest sonnet."
+    },
+    "codex-luna": {
+      "kind": "codex",
+      "model": "gpt-6-luna",
+      "args": ["--approve-for-me"],
+      "notes": "Fast and cheap: easy tasks and quick checks. A reviewer model gates each command."
+    },
+    "codex-sol": {
+      "kind": "codex",
+      "model": "gpt-6.1-sol",
+      "args": ["--approve-for-me"],
+      "notes": "Workhorse for coding and careful analysis, long single-task runs."
+    },
+    "codex-astra": {
+      "kind": "codex",
+      "model": "gpt-6-astra",
+      "args": ["--approve-for-me"],
+      "notes": "Frontier model for the hardest tasks. Give it the topic you trust least."
+    },
+    "cursor-grok": {
+      "kind": "cursor",
+      "model": "grok-4.7-high",
+      "args": ["--force", "--trust"],
+      "notes": "Protocols, endpoints, code reading, exact numbers. --force auto-approves every command."
+    },
+    "cursor-composer": {
+      "kind": "cursor",
+      "model": "composer-2.5",
+      "args": ["--force", "--trust"],
+      "notes": "Cursor's own coding model: code reading, search and quick cross-checks. Fast turnaround."
+    }
+  }
+}

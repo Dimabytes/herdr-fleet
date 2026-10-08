@@ -1,6 +1,6 @@
 #!/bin/zsh
 # usage: [MODEL=<id>] R=<run dir> launch.sh <name> <pane> <agent|kind> [extra agent args...]
-# <agent> is a key in .herdr-fleet.config.json in the project root (created from agents.example.json if missing).
+# <agent> is a key in .herdr-fleet.config.json in the project root (created from herdr-fleet.config.example.json if missing).
 # If it is not a key but is a herdr agent kind (see `herdr agent start --help`) or command-code, that CLI starts with its own defaults.
 # The model is optional: MODEL=<id> overrides the config, and with no model at all the CLI picks its default.
 # Find current ids with models.sh. Starts: <kind> [--model <model>] <config args> <extra args>. Send the task with prompt.sh.
@@ -8,7 +8,7 @@
 set -o pipefail  # a failed herdr start must fail the script, not just print ERR
 TOP=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "run launch.sh from inside the project repo (the config lives at its top level)" >&2; exit 1; }
 CFG=$TOP/.herdr-fleet.config.json
-[ -f $CFG ] || { cp ${0:A:h}/../agents.example.json $CFG; echo "created $CFG from example, check the agents"; }
+[ -f $CFG ] || { cp ${0:A:h}/../herdr-fleet.config.example.json $CFG; echo "created $CFG from example, check the agents"; }
 N=$1; PANE=$2; AGENT=$3; shift 3
 A=(${(f)"$(python3 -c 'import json,sys,os
 c=json.load(open(sys.argv[1]))["agents"]; n=sys.argv[2]

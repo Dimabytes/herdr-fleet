@@ -13,23 +13,12 @@ Scripts: `S` is the `scripts/` directory of this skill, as an absolute path. Ins
 
 ## Agents
 
-The agent list lives in `.herdr-fleet.config.json` in the project root (git top level), not in this skill. Each project has its own. Run `$S/launch.sh` from inside the project repo: on first use it creates the file from `agents.example.json`. Outside a git repo it stops, so the config is never written to the wrong place.
+The agent list lives in `.herdr-fleet.config.json` in the project root (git top level), not in this skill. Each project has its own. Run `$S/launch.sh` from inside the project repo: on first use it creates the file from `herdr-fleet.config.example.json`. Outside a git repo it stops, so the config is never written to the wrong place.
 
-```json
-{
-  "agents": {
-    "codex": {
-      "kind": "codex",
-      "args": ["--approve-for-me"],
-      "notes": "Careful analysis, long single-task runs."
-    }
-  }
-}
-```
 
 | field         | meaning                                                          |
 | ------------- | ---------------------------------------------------------------- |
-| key           | agent name the user says: "run it on codex and cursor"           |
+| key           | agent name the user says: "run it on codex-sol and cursor-grok"  |
 | `kind`        | `herdr agent start --kind` value, or `command-code` (see below)  |
 | `model`       | optional. Passed as `--model <model>`. Omit it to use the CLI's own default |
 | `model_flag`  | optional. Flag used for the model, if the CLI does not take `--model` (`-m` is already used for command-code, opencode, gemini) |
@@ -38,13 +27,12 @@ The agent list lives in `.herdr-fleet.config.json` in the project root (git top 
 
 Read the file before you pick agents. To add or change an agent, edit the file. Every kind is optional: keep only the CLIs the user has installed and logged in to. The shipped example is a starting point, not a recommendation.
 
-### Models: never hardcode, ask the CLI
+### Models: one per entry, checked against the CLI
 
-Model ids change often, so this skill stores none. Three ways to stay current, in order of preference:
+The example has one entry per model, and every entry sets `model`. Ids go stale: if a launch fails on an unknown model, run `$S/models.sh` and fix the config. Two more ways to pick a model:
 
-1. **Omit `model`** (or use an alias such as claude's `sonnet`, which tracks the latest): the CLI picks its current default.
-2. **Choose at launch.** Run `$S/models.sh [kind...]` (no argument: every installed CLI). It asks each CLI for its live list. Filter with `grep -i`. Then launch with `MODEL=<id> $S/launch.sh ...`, which overrides the config for this launch only. When the user names a model ("run it on the newest codex"), resolve it this way yourself.
-3. **Use a bare kind.** `launch.sh <name> $PANE codex` works with no config entry at all: the CLI starts with its own defaults. Add `MODEL=` or extra args as needed.
+1. **Choose at launch.** Run `$S/models.sh [kind...]` (no argument: every installed CLI). It asks each CLI for its live list. Filter with `grep -i`. Then launch with `MODEL=<id> $S/launch.sh ...`, which overrides the config for this launch only. When the user names a model ("run it on the newest codex"), resolve it this way yourself.
+2. **Use a bare kind.** `launch.sh <name> $PANE codex` works with no config entry at all: the CLI starts with its own defaults. Add `MODEL=` or extra args as needed.
 
 `models.sh` covers cursor, codex, devin, command-code, opencode, pi and grok through their listing commands. claude has none (its `--model` takes aliases or full ids, see `claude --help`); for other kinds it points you to `<cli> --help`. `herdr agent start --help` lists every supported `--kind`.
 
@@ -54,9 +42,11 @@ One place for per-kind behaviour. Skip the lines for kinds you do not use.
 
 - **cursor**: `--force --trust` auto-approves. May stop with `Agent stopped retrying` (connection); `prompt.sh <name> continue` resumes it. A new prompt in the same session keeps context.
 - **codex**: `--approve-for-me` routes each command through a reviewer model and the sandbox still confines writes; it is not the `--dangerously-bypass-…` mode. Pass `-c` overrides (reasoning effort, service tier) in `args`; user `config.toml` may set different defaults. Confirm the settings in the welcome card. Self-updates on start (see Gotchas). A new prompt in the same session keeps context.
-- **claude**: `--permission-mode` decides what needs approval. Anything stricter than auto-approve leaves the agent `blocked` on the first prompt; `watch.sh` reports that.
+- **claude**: `--permission-mode auto` lets a classifier approve routine actions and block destructive ones, with no prompt. Stricter modes (`acceptEdits`, `manual`) leave the agent `blocked` on its first shell command; `watch.sh` reports that.
 - **devin**: `--permission-mode bypass` auto-approves, but `DEVIN_PERMISSION_MODE` in the environment overrides argv. Trust the footer: it must say `(bypass permissions on)`; if a permission dialog appears without it, close that pane and start a new one. Never `/new` in a devin pane: it resets the permission mode and the agent hangs on approval. Start a fresh pane per task. A working devin may queue new prompts; `prompt.sh` presses Enter to flush them.
 - **command-code**: headless, see the next section.
+
+Permission rule for `args`: if the CLI has a classifier mode, use it (claude `auto`, codex `--approve-for-me`). Otherwise use full auto-approve. A mode that asks the user blocks the run.
 
 Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no approval gate sits between the agent and `rm -rf`. The no-destruction rule in `00-context.md` (see Files, not chat) is required. Do not launch without it. If the harness you run in blocks auto-approve agents, tell the user and ask before you launch.
 

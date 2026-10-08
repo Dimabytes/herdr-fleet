@@ -33,17 +33,18 @@ npx skills add Dimabytes/herdr-fleet -g --skill herdr-fleet
 ## Agents
 
 The skill does not hardcode models. It reads `.herdr-fleet.config.json` in the project root, so each project has its own agents.
-On first launch in a project the skill copies [`agents.example.json`](skills/herdr-fleet/agents.example.json) there. Every agent kind is optional, and `model` is optional too: omit it to use the CLI's default.
+On first launch in a project the skill copies [`herdr-fleet.config.example.json`](skills/herdr-fleet/herdr-fleet.config.example.json) there. It has one entry per model (claude opus and sonnet, codex luna, sol and astra, cursor grok and composer). Keep only the agents you have installed.
 
-Model ids drift, so nothing is pinned. `scripts/models.sh` asks each installed CLI for its live model list, and `MODEL=<id> launch.sh ...` picks one at launch time. You can also launch a bare kind (`launch.sh <name> <pane> codex`) with no config entry at all.
+Model ids drift. `scripts/models.sh` asks each installed CLI for its live model list: use it to fix a stale id. `MODEL=<id> launch.sh ...` overrides the model at launch time. You can also launch a bare kind (`launch.sh <name> <pane> codex`) with no config entry at all.
 
 ```json
 {
   "agents": {
-    "codex": {
+    "codex-sol": {
       "kind": "codex",
+      "model": "gpt-6.1-sol",
       "args": ["--approve-for-me"],
-      "notes": "Careful analysis, long single-task runs."
+      "notes": "Workhorse for coding and careful analysis, long single-task runs."
     }
   }
 }
@@ -51,10 +52,10 @@ Model ids drift, so nothing is pinned. `scripts/models.sh` asks each installed C
 
 | Field   | Meaning                                                  |
 | ------- | -------------------------------------------------------- |
-| key     | agent name you use in chat: "run it on codex and cursor"    |
+| key     | agent name you use in chat: "run it on codex-sol and cursor-grok" |
 | `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [SKILL.md](skills/herdr-fleet/SKILL.md)) |
-| `model` | optional, passed as `--model <model>`; omit for the CLI default |
-| `args`  | extra CLI args, one array item per argv item             |
+| `model` | passed as `--model <model>`; omit for the CLI default |
+| `args`  | extra CLI args, one array item per argv item. Permissions: the CLI's classifier mode if it has one (claude `--permission-mode auto`, codex `--approve-for-me`), otherwise full auto-approve |
 | `notes` | what it is good at; the orchestrator picks agents by it  |
 
 ## Scripts
