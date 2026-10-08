@@ -7,6 +7,8 @@ Use it to split a big research task, fan out a review, or cross-check one questi
 
 Agents report through files, not chat. Background watchers wake the orchestrator when a report is final.
 
+![One prompt starts a bug review on claude, codex, cursor and devin in a Herdr grid](assets/demo.gif)
+
 ## Requirements
 
 - macOS or Linux. Windows is not supported: the scripts are zsh.
