@@ -96,7 +96,10 @@ If agents use a browser tool, give each its own named session and forbid command
 - `agent_status` alone lies (idle/done while still writing, or done with a half-written report). Completion = `Status: FINAL` in the report (`$S/watch.sh`).
 - **Agent CLIs may self-update on start** (for example codex: `Update ran successfully! Please restart Codex.`) and exit. `launch.sh` restarts once if the agent is gone 8 s after start. Always wait with `watch.sh`, not a file-only loop: it reports GONE.
 - **Shared state.** Agents share the machine: browser sessions, ports, lock files. Give each its own session name and profile, and never run a "close all" command.
-- Agents may leave background processes running. At the end: `pkill -f "$R/work/<name>/"` per agent, and check for relative-path children (`ps -axo pid,command | grep <script>`). `cleanup.sh` does the first part.
+- Agents may leave background processes running. At the end: `pkill -f "$R/work/<name>/"` per agent, and check for relative-path children (`ps -axo pid,command | grep <script>`). `cleanup.sh` does the first part. A leftover process that holds a shared lock (a GPU or CPU slot) blocks every other agent; after stopping an agent, check the lock files and kill the holder.
+- **Context overflow.** A Devin footer shows `Context: N / 262k`; at 100 % it stops with `Response truncated` and cannot continue. Commits survive. Start a fresh agent (new name, same worktree and branch) with a short resume brief: its commits so far, what is left, "overwrite the WIP report". Check long runners at ~80 %.
+- **Stale branch names.** A branch left from an earlier run with the same name makes worktree creation fail while launch and prompt still succeed, so the agent starts without a tree. Prefix branches per run and check the worktree exists before sending the prompt. If a remote has a branch of the same name, pass `refs/heads/<branch>` as the base.
+- **Stopping a code agent early**: if its tree is clean and it has commits, merge what is committed (each commit was green); write its log line from the commit subjects. Testing-only agents can simply be stopped.
 
 ## Files, not chat
 
@@ -130,6 +133,8 @@ It exits on DONE (report says `Status: FINAL`, changed after the watcher started
 IDLE (agent not working, report stable 10 min, not final — nudge it), BLOCKED, GONE, TIMEOUT (default 90 min), or EXITED (command-code only).
 Each exit also raises a herdr notification, so the user sees it without watching the tab.
 That wakes you. No polling in between.
+
+In Cursor: start all watchers in one backgrounded tool shell with an output notification on `^(DONE|BLOCKED|GONE|TIMEOUT)`; `( watch.sh ... & )` inside a normal call dies when the call ends. IDLE also fires on an agent that is only thinking for a long time, so re-run on IDLE: `while true; do o=$(watch.sh $a); echo "$o"; case $o in DONE*|GONE*|BLOCKED*|TIMEOUT*) break;; esac; sleep 30; done`.
 
 ## Clean up
 
