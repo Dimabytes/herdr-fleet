@@ -14,7 +14,7 @@ case "$1 $2" in
   "agent get") [ -f $FAKE/$3.status ] || exit 1; printf '{"result":{"agent":{"agent_status":"%s"}}}\n' "$(cat $FAKE/$3.status)";;
   "agent wait") sleep 0.1;;
   "agent read") cat $FAKE/$3.screen 2>/dev/null;;
-  "agent prompt") print -r -- "$4" >> $FAKE/$3.prompts;;
+  "agent prompt") [ -f $FAKE/$3.hang ] && sleep 3; print -r -- "$4" >> $FAKE/$3.prompts;;
   "agent send-keys"|"notification show") ;;
   "pane get") [ -f "$FAKE/pane-$3" ];;
   "pane run") print -r -- "$4" >> "$FAKE/pane-$3.runs";;
@@ -86,6 +86,10 @@ finish a7 1 2>/dev/null; code=$?
 [ $code = 1 ] && [ ! -f $R/work/a7/done-1 ] && ok finish-refuses-missing-report || bad finish-refuses-missing-report "exit $code"
 $S/finish.sh $R a7 9 2>/dev/null; code=$?
 [ $code = 2 ] && ok finish-refuses-unknown-task || bad finish-refuses-unknown-task "exit $code"
+work a7 1; mkdir $R/work/a7/.done-1.tmp  # a directory in the way: the marker write fails
+o=$(finish a7 1 2>&1); code=$?
+[ $code = 1 ] && [ ! -f $R/work/a7/done-1 ] && [[ $o != *"done:"* ]] && ok finish-fails-on-write-error || bad finish-fails-on-write-error "exit $code: $o"
+rmdir $R/work/a7/.done-1.tmp; rm $(cat $R/work/a7/report-1)
 
 echo "-- --raw nudges the current task, --slug names the report"
 agent a8; send a8 "task"; $S/prompt.sh a8 --raw "continue" >/dev/null
@@ -93,6 +97,15 @@ agent a8; send a8 "task"; $S/prompt.sh a8 --raw "continue" >/dev/null
 [ "$(tail -1 $FAKE/a8.prompts)" = continue ] && ok raw-sends-text-as-is || bad raw-sends-text-as-is "$(tail -1 $FAKE/a8.prompts)"
 send a8 --slug rule-data "task two"
 [ "$(cat $R/work/a8/report-2)" = $R/reports/a8-2-rule-data.md ] && ok slug-in-report-name || bad slug-in-report-name "$(cat $R/work/a8/report-2)"
+
+echo "-- a killed sender leaves no stuck lock"
+agent k1; touch $FAKE/k1.hang
+$S/prompt.sh k1 "one" >/dev/null 2>&1 & p=$!
+sleep 1; kill -9 $p; rm $FAKE/k1.hang
+$S/prompt.sh k1 "two" >/dev/null 2>&1 & p=$!
+for i in {1..25}; do kill -0 $p 2>/dev/null || break; sleep 0.2; done
+if kill -0 $p 2>/dev/null; then kill $p; bad killed-sender-frees-lock "second sender stuck"
+else wait $p; [ "$(cat $R/work/k1/run)" = 2 ] && ok killed-sender-frees-lock || bad killed-sender-frees-lock "run=$(cat $R/work/k1/run)"; fi
 
 echo "-- command-code keeps its exit code"
 mkdir -p $R/work/cc; echo command-code > $R/work/cc/kind; echo w1:p9 > $R/work/cc/pane; : > $R/work/cc/args; touch $FAKE/pane-w1:p9
@@ -107,7 +120,7 @@ starts cc-nonzero-exit "EXITED cc #3 3" "$(watch cc 3 5)"
 $S/prompt.sh cc --raw "x" 2>/dev/null; code=$?
 [ $code = 2 ] && ok cc-refuses-raw || bad cc-refuses-raw "exit $code"
 
-echo "-- collect.sh: same states, gate on each agent's latest task"
+echo "-- collect.sh: same states, the gate fails while a task is open"
 echo "# old" > $R/reports/legacy.md
 c=$(R=$R $S/collect.sh); code=$?
 has collect-wip "| a5 | 1 | WIP |" "$c"
@@ -115,6 +128,22 @@ has collect-missing "| a7 | 1 | missing |" "$c"
 has collect-cc-exited "| cc | 3 | EXITED 3 |" "$c"
 has collect-untracked "| - | - | untracked | 6 | legacy.md |" "$c"
 [ $code = 1 ] && ok collect-gate-fails-while-open || bad collect-gate-fails-while-open "exit $code"
+
+echo "-- the gate counts every task; --replaces closes one explicitly (fresh run dir)"
+R=$TMP/run2; mkdir -p $R/reports; cp $TMP/run/herdr.env $R/
+agent g1 working; send g1 "one"; send g1 "two"; work g1 2; finish g1 2
+R=$R $S/collect.sh >/dev/null; code=$?
+[ $code = 1 ] && ok older-open-task-blocks-gate || bad older-open-task-blocks-gate "exit $code"
+$S/prompt.sh g1 --replaces g1:7 "x" 2>/dev/null; code=$?
+[ $code = 2 ] && [ "$(cat $R/work/g1/run)" = 2 ] && ok replaces-refuses-unknown-task || bad replaces-refuses-unknown-task "exit $code"
+agent g2; send g2 --replaces g1:1 "continue task #1 of g1"
+starts replaced-watcher-exits "REPLACED g1 #1 by g2#1" "$(watch g1 1 5)"
+R=$R $S/collect.sh >/dev/null; code=$?
+[ $code = 1 ] && ok open-replacement-keeps-gate || bad open-replacement-keeps-gate "exit $code"
+work g2 1; finish g2 1
+c=$(R=$R $S/collect.sh); code=$?
+[ $code = 0 ] && ok done-replacement-opens-gate || bad done-replacement-opens-gate "exit $code"
+has replaced-row-keeps-history "| g1 | 1 | replaced by g2#1 |" "$c"
 
 echo "$passed passed, $failed failed"
 [ $failed = 0 ]

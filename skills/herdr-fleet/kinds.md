@@ -32,7 +32,7 @@ Long shell commands run as background tasks. Then herdr reports `done` while the
 
 - `launch.sh` only records the pane and args in `$R/work/<name>/`. No herdr agent starts.
 - `prompt.sh <name> "<task>"` writes the task to `$R/work/<name>/prompt-<n>.txt` and runs `command-code-run.sh` in the pane. Run 1 names the session `<name>` (`-n`); later runs resume it (`-r`), so follow-ups keep context.
-- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `done-<n>` from `finish.sh` is DONE. Exit 0 without it is EXITED `0-nofinish`; a non-zero exit is EXITED with its code. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
+- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `done-<n>` from `finish.sh` is DONE. Exit 0 without it is EXITED `0-nofinish`; a non-zero exit is EXITED with its code. To continue, send `prompt.sh <name> --replaces <name>:<n> "<task>"`; without `--replaces` the exited task keeps `collect.sh` open. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
 - Do not use `agent_status` or `agent read` for this agent. `prompt.sh --raw` refuses it: every prompt is a new run, so send a new task.
 - `--yolo` skips every permission prompt, so the no-destruction rule applies.
 

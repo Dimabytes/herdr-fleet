@@ -1,10 +1,11 @@
 #!/bin/zsh
 # usage: R=<run dir> watch.sh <agent> [task#] [timeout_s]   (run in background)
 # Waits for one task: the number prompt.sh printed, by default the agent's latest task when the watcher starts.
-# A later task never satisfies or replaces this one, and a late finish of an older task does not either.
+# A later task never satisfies this one, and a late finish of an older task does not either; only prompt.sh --replaces closes it.
 # DONE: finish.sh recorded this task (task.sh). It is checked first, so a watcher started after the agent finished,
 #   restarted mid-run, or started after the pane closed still reports DONE.
 # EXITED (command-code): the run ended with a non-zero code, or with code 0 and no finish.
+# REPLACED: a later task took this one over (prompt.sh --replaces).
 # IDLE: agent not working, no busy marker on screen, task report unchanged IDLE_S (600) s -> nudge: prompt.sh --raw.
 # Exits early on BLOCKED / GONE, or TIMEOUT. Blocks on `herdr agent wait`, so it wakes within ~10 s.
 : ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
@@ -24,7 +25,8 @@ while true; do
   s=$(task_state $W $n)
   case $s in
     done) say "DONE $N #$n $F"; exit 0;;
-    exited:*) say "EXITED $N #$n ${s#exited:} (read $F; send a new task to continue)"; exit 0;;
+    exited:*) say "EXITED $N #$n ${s#exited:} (read $F; to continue: prompt.sh $N --replaces $N:$n \"<task>\")"; exit 0;;
+    replaced:*) say "REPLACED $N #$n by ${s#replaced:}"; exit 0;;
   esac
   [ $((now-start)) -ge $T ] && { say "TIMEOUT $N #$n"; exit 0; }
   if [ $CC = 1 ]; then

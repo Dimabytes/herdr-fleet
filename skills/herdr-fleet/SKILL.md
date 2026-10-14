@@ -74,7 +74,7 @@ Auto-approve (cursor `--force`, devin `bypass`, grok `--always-approve`, command
 ```bash
 PANE=$(R=<run dir> $S/grid.py <tab-label> --new)
 [MODEL=<id>] R=<run dir> $S/launch.sh <name> $PANE <agent|kind> [extra agent args...]
-R=<run dir> $S/prompt.sh <name> [--slug <topic>] "<task>"   # prints: task #<n> sent; report: ...
+R=<run dir> $S/prompt.sh <name> [--slug <topic>] [--replaces <agent>:<n>] "<task>"   # prints: task #<n> sent; report: ...
 ```
 
 `launch.sh` cd's the pane to `$R` (stray relative writes land there, not in the code repo), looks up `<agent>` in the config (or accepts a bare kind) and starts it. It does not send a task. For a research run, send the standard prompt:
@@ -89,7 +89,7 @@ If agents use a browser tool, give each its own named session and forbid command
 
 ## Gotchas
 
-- **Follow-ups: use `$S/prompt.sh`.** It sends the text and flushes the queued-message Enter some agents need. Each follow-up is a new task with its own number and report. To nudge the current task (`continue`, an answer to its question), use `prompt.sh <name> --raw "<text>"`: no new number, the watcher keeps waiting.
+- **Follow-ups: use `$S/prompt.sh`.** It sends the text and flushes the queued-message Enter some agents need. Each follow-up is a new task with its own number and report. A new task never closes an older one: `collect.sh` waits for every task. To drop or take over an older task, send the new one with `--replaces <agent>:<n>`. To nudge the current task (`continue`, an answer to its question), use `prompt.sh <name> --raw "<text>"`: no new number, the watcher keeps waiting.
 - `agent_status` alone lies (idle/done while still writing, or done with a half-written report). Completion = `$R/work/<name>/done-<n>`, which `finish.sh` writes (`$S/watch.sh`). Report lines and file times do not count.
 - **Agent CLIs may self-update on start** (for example codex: `Update ran successfully! Please restart Codex.`) and exit. `launch.sh` restarts once if the agent is gone 8 s after start. Always wait with `watch.sh`, not a file-only loop: it reports GONE.
 - **Shared state.** Agents share the machine: browser sessions, ports, lock files. Give each its own session name and profile, and never run a "close all" command.
@@ -105,7 +105,7 @@ $R/00-context.md       goal, known facts, hard rules, report format, agent list
 $R/briefs/<name>.md    one brief per agent
 $R/reports/<name>-<n>[-<topic>].md   report of task n (prompt.sh names it)
 $R/work/<name>/        agent scratch; prompt.sh and finish.sh keep task state here:
-                       run (latest n), prompt-<n>.txt, report-<n>, done-<n>
+                       run (latest n), prompt-<n>.txt, report-<n>, done-<n>, replaced-<n>
 $R/work/orchestrator/  your own checks (notes.md)
 ```
 
@@ -127,15 +127,15 @@ Hard rules to put in `00-context.md` (adapt to the task):
 
 One background watcher per agent. Start it with the shell tool in background mode (`run_in_background`), never as a foreground loop:
 `R=... $S/watch.sh <name> [task#] [timeout_s]`
-It waits for one task: the number `prompt.sh` printed, by default the agent's latest task when the watcher starts. A later task or a late `finish.sh` of an older task never closes it.
+It waits for one task: the number `prompt.sh` printed, by default the agent's latest task when the watcher starts. A later task or a late `finish.sh` of an older task never closes it; only a task sent with `--replaces <name>:<n>` does.
 It exits on DONE (`done-<n>` exists; checked first, so a watcher started late, restarted, or started after the pane closed still sees it; it blocks on `herdr agent wait` with a 10 s timeout, so it wakes within ~10 s),
-IDLE (agent not working, no busy marker on screen, report unchanged 10 min, no finish: read the report, then nudge with `--raw`), BLOCKED, GONE, TIMEOUT (default 90 min), or EXITED (command-code only).
+IDLE (agent not working, no busy marker on screen, report unchanged 10 min, no finish: read the report, then nudge with `--raw`), BLOCKED, GONE, TIMEOUT (default 90 min), EXITED (command-code only), or REPLACED (a later task took it over with `--replaces`).
 Each exit also raises a herdr notification (`fleet <name> #<n>`), so the user sees it without watching the tab.
 That wakes you. No polling in between.
 
-Recovery is your job. If a watcher dies, start it again with the same task number. If the agent dies before it finishes, start a fresh agent and send a new task: "Continue task #n of <old name>", the text from `$R/work/<old name>/prompt-<n>.txt`, and the path of its partial report.
+Recovery is your job. If a watcher dies, start it again with the same task number. If the agent dies before it finishes, start a fresh agent and send it `prompt.sh <new> --replaces <old>:<n> "<task>"`. The task holds "Continue task #n of <old>", the text from `$R/work/<old>/prompt-<n>.txt`, and the path of its partial report. `--replaces` writes `replaced-<n>` in the old agent's work dir, so the index keeps its row (`replaced by <new>#<m>`) and the gate waits for the new task. Without it the old task stays open and `collect.sh` fails.
 
-In Cursor: start all watchers in one backgrounded tool shell with an output notification on `^(DONE|BLOCKED|GONE|TIMEOUT|EXITED)`; `( watch.sh ... & )` inside a normal call dies when the call ends. IDLE also fires on an agent that is only thinking for a long time, so re-run on IDLE: `while true; do o=$(watch.sh $a $n); echo "$o"; case $o in DONE*|GONE*|BLOCKED*|TIMEOUT*|EXITED*) break;; esac; sleep 30; done`.
+In Cursor: start all watchers in one backgrounded tool shell with an output notification on `^(DONE|BLOCKED|GONE|TIMEOUT|EXITED|REPLACED)`; `( watch.sh ... & )` inside a normal call dies when the call ends. IDLE also fires on an agent that is only thinking for a long time, so re-run on IDLE: `while true; do o=$(watch.sh $a $n); echo "$o"; case $o in DONE*|GONE*|BLOCKED*|TIMEOUT*|EXITED*|REPLACED*) break;; esac; sleep 30; done`.
 
 ## Clean up
 
@@ -144,6 +144,6 @@ When a run is over, `R=$R $S/cleanup.sh` lists the processes and panes of this r
 ## Verify
 
 - Give the most suspicious topic to 2 agents of different models. Overlap finds more, and disagreement shows what needs a re-check.
-- `R=$R $S/collect.sh` builds `$R/index.md`: one row per task of every agent, with the state `watch.sh` uses. FINAL (finished), WIP (report, no finish), missing, send failed, EXITED (command-code), no task. Reports no task owns show as untracked. It exits 0 only when every agent's latest task is FINAL.
+- `R=$R $S/collect.sh` builds `$R/index.md`: one row per task of every agent, with the state `watch.sh` uses. FINAL (finished), WIP (report, no finish), missing, send failed, EXITED (command-code), replaced by `<agent>#<m>`, no task. Reports no task owns show as untracked. It exits 0 only when every task is FINAL or replaced.
 - Re-check every key number yourself with a small script before it goes in the final report. Keep a "refuted" list.
 - Close only panes and tabs you created, and only when the user no longer needs them.
