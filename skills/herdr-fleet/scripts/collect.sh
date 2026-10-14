@@ -1,27 +1,38 @@
 #!/bin/zsh
 # usage: R=<run dir> collect.sh
-# One table for the whole run: every agent in work/ and every report in reports/, with line-2 status.
-# Writes $R/index.md and prints the same table. Exit 0 only when every agent has a FINAL report, so it can gate a merge.
+# One table for the whole run: every task of every agent in work/, with the state watch.sh uses (task.sh).
+# Reports no task owns are listed as untracked. Writes $R/index.md and prints the same table.
+# Exit 0 only when every agent's latest task is done, so it can gate a merge.
 : ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
+source ${0:A:h}/task.sh
 OUT=$R/index.md
+row() { local f=$1; [ -f "$f" ] && print -r -- "$(wc -c < $f | tr -d ' ') | ${f:t} | $(head -1 $f | tr -d '|' | cut -c1-80)" || print -r -- "0 | ${f:t} |"; }
 {
   echo "# Run index: ${R:t}"
   echo ""
-  echo "| agent | status | bytes | title (line 1) |"
-  echo "| --- | --- | --- | --- |"
-  names=()
-  for d in $R/work/*(/N); do [ ${d:t} = orchestrator ] || names+=(${d:t}); done  # orchestrator is not an agent
-  for f in $R/reports/*.md(N); do n=${f:t:r}; [[ " ${names[*]} " == *" $n "* ]] || names+=($n); done
-  pending=0
-  for n in $names; do
-    f=$R/reports/$n.md
-    if [ ! -f $f ]; then echo "| $n | missing | 0 | |"; pending=$((pending+1)); continue; fi
-    st=$(sed -n 2p $f); case $st in "Status: FINAL") s=FINAL;; "Status: WIP") s=WIP; pending=$((pending+1));; *) s="no status"; pending=$((pending+1));; esac
-    title=$(head -1 $f | tr -d '|' | cut -c1-100)
-    echo "| $n | $s | $(wc -c < $f | tr -d ' ') | $title |"
+  echo "| agent | task | status | bytes | report | title (line 1) |"
+  echo "| --- | --- | --- | --- | --- | --- |"
+  pending=0; agents=0; owned=()
+  for W in $R/work/*(/N); do
+    N=${W:t}; [ $N = orchestrator ] && continue  # orchestrator is not an agent
+    agents=$((agents+1))
+    latest=$(cat $W/run 2>/dev/null || echo 0)
+    [ $latest = 0 ] && { echo "| $N | - | no task | 0 | | |"; pending=$((pending+1)); continue; }
+    for n in {1..$latest}; do
+      F=$(task_report $W $n); owned+=($F)
+      s=$(task_state $W $n)
+      case $s in
+        done) label=FINAL;;
+        pending) if [ -f $W/send-failed-$n ]; then label="send failed"; elif [ -s "$F" ]; then label=WIP; else label=missing; fi;;
+        *) label="EXITED ${s#exited:}";;
+      esac
+      [ $n = $latest ] && [ $s != done ] && pending=$((pending+1))
+      echo "| $N | $n | $label | $(row $F) |"
+    done
   done
+  for f in $R/reports/*.md(N); do (( ${owned[(Ie)$f]} )) || echo "| - | - | untracked | $(row $f) |"; done
   echo ""
-  echo "Not final: $pending of ${#names} agents."
+  echo "Latest task not done: $pending of $agents agents."
 } > $OUT
 cat $OUT
 [ $pending = 0 ]

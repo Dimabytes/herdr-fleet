@@ -66,10 +66,11 @@ Model ids drift. `scripts/models.sh` asks each installed CLI for its live model 
 | ----------- | -------------------------------------------------------------------- |
 | `models.sh` | list the live model ids of each installed agent CLI |
 | `launch.sh` | start an agent (config entry or bare kind, optional `MODEL=`) in a pane, cwd = run dir |
-| `prompt.sh` | send a task or follow-up; flushes the queued-message Enter some agents need       |
-| `watch.sh`  | background watcher: exits on `Status: FINAL`, idle, blocked, gone, timeout (raises a herdr notification) |
+| `prompt.sh` | send a numbered task (own report, appended `finish.sh` line) or a `--raw` nudge; flushes the queued-message Enter some agents need |
+| `finish.sh` | the agent runs it as its last action: checks the task's report and writes `done-<n>` |
+| `watch.sh`  | background watcher for one task: exits on done, idle, blocked, gone, timeout, exited (raises a herdr notification) |
 | `command-code-run.sh` | runs one headless `cmd -p` task inside a command-code agent's pane |
-| `collect.sh` | run index: every agent's report status in `index.md`; exits 0 only when all are FINAL |
+| `collect.sh` | run index: every task of every agent in `index.md`; exits 0 only when each agent's latest task is done |
 | `cleanup.sh` | dry run by default; `--close` stops a run's processes and closes its panes |
 | `grid.py`   | tiles a run's panes into an even grid (max 10 per tab) |
 | `session.py` | finds the orchestrator's own herdr session and pane by cwd, pins it in `$R/herdr.env`; the other scripts load it |

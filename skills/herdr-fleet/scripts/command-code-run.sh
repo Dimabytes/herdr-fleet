@@ -1,7 +1,7 @@
 #!/bin/zsh
 # usage: R=<run dir> command-code-run.sh <name> <run#>   (runs inside the agent's pane; started by prompt.sh)
 # One headless `cmd -p` per task. Run 1 names the session <name>; later runs resume it with -r, so follow-ups keep context.
-# Exit code lands in work/<name>/exit-<run#> (watch.sh waits for that file).
+# Exit code lands in work/<name>/exit-<run#>. The task is done only with exit 0 and done-<run#> from finish.sh (task.sh).
 : ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
 N=$1; n=$2; W="$R/work/$N"
 cd "$R" || exit 1
