@@ -1,11 +1,24 @@
 ---
 name: herdr-fleet
-description: Run several coding agents in parallel through Herdr panes, with each agent reporting through a file. The agents come from a per-project config, so any mix of supported CLIs works. Use when the user asks to orchestrate several models via herdr, spawn N agents in herdr panes, fan out a review, or split a big investigation across agents.
+description: Runs several coding agents in parallel in Herdr panes, each reporting through a file, and wakes the orchestrator when reports are final. Agents come from a per-project config, so any mix of supported CLIs (Claude, Codex, Cursor, Devin, command-code) works. Use when the user asks to orchestrate several models or agents via herdr, spawn N agents in herdr panes, fan out a review, cross-check one question on different models, or split a big investigation across agents.
 ---
 
 # Herdr fleet
 
 **HARD RULE, STEP 1: load the `herdr` skill (Skill tool) before anything else.** Do it before you read the config, write files, or run any script. The fleet scripts do not replace it: it holds the CLI rules this skill assumes. No exceptions, even if you plan no direct `herdr` calls.
+
+## Run order
+
+Copy into your todo list. Each step names the section that holds its rules.
+
+1. Load the `herdr` skill and check `HERDR_ENV` (above).
+2. Pick a persistent run dir `$R`, scaffold it, and pin the session (Files, not chat; Session pin).
+3. Read `.herdr-fleet.config.json` and pick agents (Agents). For each kind you launch, read its entry in [kinds.md](kinds.md).
+4. Write `$R/00-context.md` with the hard rules, then one brief per agent (Files, not chat).
+5. Create panes with `grid.py`, launch, send the standard prompt (Layout; Launch).
+6. Start one background watcher per agent (Watch).
+7. Re-check results and build the index (Verify).
+8. Stop processes and close the panes you created (Clean up).
 
 Before any `herdr` command: `test "${HERDR_ENV:-}" = 1`. Never run bare `herdr` (it opens the TUI).
 
@@ -38,29 +51,11 @@ The example has one entry per model, and every entry sets `model`. Ids go stale:
 
 `models.sh` covers cursor, codex, devin, command-code, opencode, pi and grok through their listing commands. claude has none (its `--model` takes aliases or full ids, see `claude --help`); for other kinds it points you to `<cli> --help`. `herdr agent start --help` lists every supported `--kind`.
 
-### Kind notes
+### Kinds and permissions
 
-One place for per-kind behaviour. Skip the lines for kinds you do not use.
-
-- **cursor**: `--force --trust` auto-approves. May stop with `Agent stopped retrying` (connection); `prompt.sh <name> continue` resumes it. A new prompt in the same session keeps context. A prompt sent while it works goes to a follow-up queue and waits until the whole task ends; a second Enter (`enter steer`) delivers it at the next step. `prompt.sh` presses that Enter.
-- **codex**: `--approve-for-me` routes each command through a reviewer model and the sandbox still confines writes; it is not the `--dangerously-bypass-…` mode. Pass `-c` overrides (reasoning effort, service tier) in `args`; user `config.toml` may set different defaults. Confirm the settings in the welcome card. `launch.sh` adds a `-c projects=...trust_level="trusted"` override for the run dir's repo, so codex skips its "Trust this folder?" dialog (session only, not saved). Self-updates on start (see Gotchas). A new prompt in the same session keeps context.
-- **claude**: `--permission-mode auto` lets a classifier approve routine actions and block destructive ones, with no prompt. Stricter modes (`acceptEdits`, `manual`) leave the agent `blocked` on its first shell command; `watch.sh` reports that.
-- **devin**: `--permission-mode bypass` auto-approves, but `DEVIN_PERMISSION_MODE` in the environment overrides argv. Trust the footer: it must say `(bypass permissions on)`; if a permission dialog appears without it, close that pane and start a new one. Never `/new` in a devin pane: it resets the permission mode and the agent hangs on approval. Start a fresh pane per task. A working devin may queue new prompts; `prompt.sh` presses Enter to flush them. A prompt sent right after start can be lost; `prompt.sh` resends once.
-- **command-code**: headless, see the next section.
-
-Permission rule for `args`: if the CLI has a classifier mode, use it (claude `auto`, codex `--approve-for-me`). Otherwise use full auto-approve. A mode that asks the user blocks the run.
+[kinds.md](kinds.md) holds per-kind flags and quirks (cursor, codex, claude, devin) and the headless command-code flow, which herdr cannot see and which `watch.sh` and `prompt.sh` handle differently. Read the entry for every kind you launch before you set its `args`.
 
 Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no approval gate sits between the agent and `rm -rf`. The no-destruction rule in `00-context.md` (see Files, not chat) is required. Do not launch without it. If the harness you run in blocks auto-approve agents, tell the user and ask before you launch.
-
-### command-code (headless)
-
-`kind: "command-code"` is not a herdr agent kind, so herdr cannot see its state. Instead, each task is one `cmd -p` run in the agent's pane:
-
-- `launch.sh` only records the pane and args in `$R/work/<name>/`. No herdr agent starts.
-- `prompt.sh <name> "<task>"` writes the task to `$R/work/<name>/prompt-<n>.txt` and runs `command-code-run.sh` in the pane. Run 1 names the session `<name>` (`-n`); later runs resume it (`-r`), so follow-ups keep context.
-- `watch.sh` waits for `$R/work/<name>/exit-<n>`. Exit 0 with `Status: FINAL` written during that run is DONE; any other exit is reported as EXITED. Exit 8 means the `--max-turns` cap was hit (see `cmd --help`). Other non-zero codes are reported as-is.
-- Do not use `agent_status`, `agent read`, or `prompt.sh continue` for this agent.
-- `--yolo` skips every permission prompt, so the no-destruction rule applies.
 
 ## Layout
 
@@ -96,7 +91,10 @@ If agents use a browser tool, give each its own named session and forbid command
 - `agent_status` alone lies (idle/done while still writing, or done with a half-written report). Completion = `Status: FINAL` in the report (`$S/watch.sh`).
 - **Agent CLIs may self-update on start** (for example codex: `Update ran successfully! Please restart Codex.`) and exit. `launch.sh` restarts once if the agent is gone 8 s after start. Always wait with `watch.sh`, not a file-only loop: it reports GONE.
 - **Shared state.** Agents share the machine: browser sessions, ports, lock files. Give each its own session name and profile, and never run a "close all" command.
-- Agents may leave background processes running. At the end: `pkill -f "$R/work/<name>/"` per agent, and check for relative-path children (`ps -axo pid,command | grep <script>`). `cleanup.sh` does the first part.
+- Agents may leave background processes running. At the end: `pkill -f "$R/work/<name>/"` per agent, and check for relative-path children (`ps -axo pid,command | grep <script>`). `cleanup.sh` does the first part. A leftover process that holds a shared lock (a GPU or CPU slot) blocks every other agent; after stopping an agent, check the lock files and kill the holder.
+- **Context overflow.** A Devin footer shows `Context: N / 262k`; at 100 % it stops with `Response truncated` and cannot continue. Commits survive. Start a fresh agent (new name, same worktree and branch) with a short resume brief: its commits so far, what is left, "overwrite the WIP report". Check long runners at ~80 %.
+- **Stale branch names.** A branch left from an earlier run with the same name makes worktree creation fail while launch and prompt still succeed, so the agent starts without a tree. Prefix branches per run and check the worktree exists before sending the prompt. If a remote has a branch of the same name, pass `refs/heads/<branch>` as the base.
+- **Stopping a code agent early**: if its tree is clean and it has commits, merge what is committed (each commit was green); write its log line from the commit subjects. Testing-only agents can simply be stopped.
 
 ## Files, not chat
 
@@ -130,6 +128,8 @@ It exits on DONE (report says `Status: FINAL`, changed after the watcher started
 IDLE (agent not working, report stable 10 min, not final — nudge it), BLOCKED, GONE, TIMEOUT (default 90 min), or EXITED (command-code only).
 Each exit also raises a herdr notification, so the user sees it without watching the tab.
 That wakes you. No polling in between.
+
+In Cursor: start all watchers in one backgrounded tool shell with an output notification on `^(DONE|BLOCKED|GONE|TIMEOUT)`; `( watch.sh ... & )` inside a normal call dies when the call ends. IDLE also fires on an agent that is only thinking for a long time, so re-run on IDLE: `while true; do o=$(watch.sh $a); echo "$o"; case $o in DONE*|GONE*|BLOCKED*|TIMEOUT*) break;; esac; sleep 30; done`.
 
 ## Clean up
 
