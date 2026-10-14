@@ -55,7 +55,7 @@ Model ids drift. `scripts/models.sh` asks each installed CLI for its live model 
 | Field   | Meaning                                                  |
 | ------- | -------------------------------------------------------- |
 | key     | agent name you use in chat: "run it on codex-sol and cursor-grok" |
-| `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [SKILL.md](skills/herdr-fleet/SKILL.md)) |
+| `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [kinds.md](skills/herdr-fleet/kinds.md)) |
 | `model` | passed as `--model <model>`; omit for the CLI default |
 | `args`  | extra CLI args, one array item per argv item. Permissions: the CLI's classifier mode if it has one (claude `--permission-mode auto`, codex `--approve-for-me`), otherwise full auto-approve |
 | `notes` | what it is good at; the orchestrator picks agents by it  |
