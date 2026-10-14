@@ -30,7 +30,7 @@ npx skills add Dimabytes/herdr-fleet -g --skill herdr-fleet
 3. On first launch the skill creates `.herdr-fleet.config.json` in the project root. Edit it to keep only your agents.
 
 > [!WARNING]
-> Fleet agents usually run with auto-approve: cursor `--force` (in the example config), devin `--permission-mode bypass`, command-code `--yolo`. No approval prompt stops these agents before a destructive command. The skill gives each agent a no-destruction rule, but it is an instruction, not a sandbox. Remove these flags if you do not accept that risk.
+> Fleet agents usually run with auto-approve: cursor `--force` (in the example config), devin `--permission-mode bypass`, grok `--always-approve`, command-code `--yolo`. No approval prompt stops these agents before a destructive command. The skill gives each agent a no-destruction rule, but it is an instruction, not a sandbox. Remove these flags if you do not accept that risk.
 
 ## Agents
 
@@ -57,7 +57,7 @@ Model ids drift. `scripts/models.sh` asks each installed CLI for its live model 
 | key     | agent name you use in chat: "run it on codex-sol and cursor-grok" |
 | `kind`  | `herdr agent start --kind` value, or `command-code` (headless `cmd -p` per task, see [kinds.md](skills/herdr-fleet/kinds.md)) |
 | `model` | passed as `--model <model>`; omit for the CLI default |
-| `args`  | extra CLI args, one array item per argv item. Permissions: the CLI's classifier mode if it has one (claude `--permission-mode auto`, codex `--approve-for-me`), otherwise full auto-approve |
+| `args`  | extra CLI args, one array item per argv item. Permissions: the CLI's classifier mode if it has one (claude `--permission-mode auto`, codex `--approve-for-me`), otherwise full auto-approve. grok is the exception: its `auto` mode blocks at random, so use `--always-approve` |
 | `notes` | what it is good at; the orchestrator picks agents by it  |
 
 ## Scripts
@@ -74,6 +74,15 @@ Model ids drift. `scripts/models.sh` asks each installed CLI for its live model 
 | `cleanup.sh` | dry run by default; `--close` stops a run's processes and closes its panes |
 | `grid.py`   | tiles a run's panes into an even grid (max 10 per tab) |
 | `session.py` | finds the orchestrator's own herdr session and pane by cwd, pins it in `$R/herdr.env`; the other scripts load it |
+
+## Contributors
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="120"><a href="https://github.com/Dimabytes"><img src="https://github.com/Dimabytes.png?size=100" width="100" alt="Dimabytes"/><br/><sub><b>Dmitrii Stovpets</b></sub></a><br/>💻 📖</td>
+    <td align="center" valign="top" width="120"><a href="https://github.com/felipebasurto"><img src="https://github.com/felipebasurto.png?size=100" width="100" alt="felipebasurto"/><br/><sub><b>Felipe Basurto</b></sub></a><br/>💻 📖</td>
+  </tr>
+</table>
 
 ## License
 

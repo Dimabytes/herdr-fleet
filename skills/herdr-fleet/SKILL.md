@@ -55,7 +55,7 @@ The example has one entry per model, and every entry sets `model`. Ids go stale:
 
 [kinds.md](kinds.md) holds per-kind flags and quirks (cursor, codex, claude, devin, grok) and the headless command-code flow, which herdr cannot see and which `watch.sh` and `prompt.sh` handle differently. Read the entry for every kind you launch before you set its `args`.
 
-Auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`) means no approval gate sits between the agent and `rm -rf`. The no-destruction rule in `00-context.md` (see Files, not chat) is required. Do not launch without it. If the harness you run in blocks auto-approve agents, tell the user and ask before you launch.
+Auto-approve (cursor `--force`, devin `bypass`, grok `--always-approve`, command-code `--yolo`) means no approval gate sits between the agent and `rm -rf`. The no-destruction rule in `00-context.md` (see Files, not chat) is required. Do not launch without it. If the harness you run in blocks auto-approve agents, tell the user and ask before you launch.
 
 ## Layout
 

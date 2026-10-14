@@ -22,7 +22,7 @@ Contents: cursor, codex, claude, devin, grok, command-code (headless), permissio
 
 ## grok
 
-`--permission-mode auto` lets a classifier approve routine actions and block risky ones, with no prompt; the footer shows `auto-review`. `--effort high` (alias `--reasoning-effort`) sets the reasoning effort. A new prompt in the same session keeps context.
+Use `--always-approve` (footer: `always-approve`). `--permission-mode auto` (footer `auto-review`) is a classifier, but it blocks at random: it let an edit of `~/.zshrc` through, then stopped on the run's own `finish.sh`, which passed in two earlier tasks. A blocked agent stalls the run until someone answers. `--effort high` (alias `--reasoning-effort`) sets the reasoning effort. A new prompt in the same session keeps context.
 
 Long shell commands run as background tasks. Then herdr reports `done` while the screen shows `1 command still running · send a message to interrupt`, and grok continues by itself when the command ends. `watch.sh` treats that line as busy. Do not send a prompt or a `--raw` nudge then: a message interrupts the command.
 
@@ -38,4 +38,4 @@ Long shell commands run as background tasks. Then herdr reports `done` while the
 
 ## Permission rule
 
-For `args`: if the CLI has a classifier mode, use it (claude `auto`, codex `--approve-for-me`, grok `auto`). Otherwise use full auto-approve (cursor `--force`, devin `bypass`, command-code `--yolo`). A mode that asks the user blocks the run.
+For `args`: if the CLI has a classifier mode, use it (claude `auto`, codex `--approve-for-me`). Otherwise use full auto-approve (cursor `--force`, devin `bypass`, grok `--always-approve`, command-code `--yolo`). grok has a classifier mode, but it blocks at random (see grok). A mode that asks the user blocks the run.
