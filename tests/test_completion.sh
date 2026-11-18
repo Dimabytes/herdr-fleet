@@ -14,8 +14,9 @@ case "$1 $2" in
   "agent get") [ -f $FAKE/$3.status ] || exit 1; printf '{"result":{"agent":{"agent_status":"%s"}}}\n' "$(cat $FAKE/$3.status)";;
   "agent wait") sleep 0.1;;
   "agent read") cat $FAKE/$3.screen 2>/dev/null;;
-  "agent prompt") [ -f $FAKE/$3.hang ] && sleep 3; print -r -- "$4" >> $FAKE/$3.prompts;;
-  "agent send-keys"|"notification show") ;;
+  "agent prompt") [ -f $FAKE/$3.hang ] && sleep 3; print -r -- "$4" >> $FAKE/$3.prompts; [ ! -f $FAKE/$3.stall ];;
+  "agent send-keys") print -r -- "${@:4}" >> $FAKE/$3.keys; [ -f $FAKE/$3.stuck ] || rm -f $FAKE/$3.screen;;
+  "notification show") ;;
   "pane get") [ -f "$FAKE/pane-$3" ];;
   "pane run") print -r -- "$4" >> "$FAKE/pane-$3.runs";;
   *) echo "fake herdr: unhandled: $*" >&2; exit 1;;
@@ -97,6 +98,22 @@ agent a8; send a8 "task"; $S/prompt.sh a8 --raw "continue" >/dev/null
 [ "$(tail -1 $FAKE/a8.prompts)" = continue ] && ok raw-sends-text-as-is || bad raw-sends-text-as-is "$(tail -1 $FAKE/a8.prompts)"
 send a8 --slug rule-data "task two"
 [ "$(cat $R/work/a8/report-2)" = $R/reports/a8-2-rule-data.md ] && ok slug-in-report-name || bad slug-in-report-name "$(cat $R/work/a8/report-2)"
+
+echo "-- a queued prompt is flushed with the key of its CLI"
+agent q1 working; echo " ┌─ follow-ups ─────────┐" > $FAKE/q1.screen
+o=$($S/prompt.sh q1 "task" 2>&1)
+[ "$(cat $FAKE/q1.keys)" = enter ] && [[ $o != *QUEUED* ]] && ok cursor-queue-gets-enter || bad cursor-queue-gets-enter "keys=$(cat $FAKE/q1.keys 2>&1) out=$o"
+agent q2 working; echo "  ⎿  Queued · ctrl+enter to send now" > $FAKE/q2.screen
+send q2 "task"
+[ "$(cat $FAKE/q2.keys)" = "ctrl+x ctrl+s" ] && ok claude-queue-gets-send-now || bad claude-queue-gets-send-now "keys=$(cat $FAKE/q2.keys 2>&1)"
+agent q3; touch $FAKE/q3.stall; echo " │ enter steer · ↑ select/edit · esc cancel │" > $FAKE/q3.screen
+$S/prompt.sh q3 "task" >/dev/null 2>&1; code=$?
+[ $code = 0 ] && [ "$(grep -c 'Task #1' $FAKE/q3.prompts)" = 1 ] && [ "$(cat $FAKE/q3.keys)" = enter ] && ok queued-on-idle-agent-is-not-resent || bad queued-on-idle-agent-is-not-resent "exit $code, sent $(grep -c 'Task #1' $FAKE/q3.prompts)x"
+agent q4 working; touch $FAKE/q4.stuck; echo "Press Enter to send queued messages now" > $FAKE/q4.screen
+o=$($S/prompt.sh q4 "task" 2>&1)
+[[ $o == *"QUEUED q4"* ]] && [ "$(wc -l < $FAKE/q4.keys | tr -d ' ')" = 4 ] && ok stuck-queue-is-reported || bad stuck-queue-is-reported "tries=$(wc -l < $FAKE/q4.keys) out=$o"
+agent q5 working; echo "the agent wrote about follow-ups in its answer" > $FAKE/q5.screen; send q5 "task"
+[ ! -f $FAKE/q5.keys ] && ok no-marker-no-keys || bad no-marker-no-keys "keys=$(cat $FAKE/q5.keys)"
 
 echo "-- a killed sender leaves no stuck lock"
 agent k1; touch $FAKE/k1.hang

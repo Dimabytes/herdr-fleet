@@ -6,7 +6,7 @@ Contents: cursor, codex, claude, devin, grok, command-code (headless), permissio
 
 ## cursor
 
-`--force --trust` auto-approves. May stop with `Agent stopped retrying` (connection); `prompt.sh <name> --raw continue` resumes it. A new prompt in the same session keeps context. A prompt sent while it works goes to a follow-up queue and waits until the whole task ends; a second Enter (`enter steer`) delivers it at the next step. `prompt.sh` presses that Enter.
+`--force --trust` auto-approves. May stop with `Agent stopped retrying` (connection); `prompt.sh <name> --raw continue` resumes it. A new prompt in the same session keeps context. A prompt sent while it works goes to a `follow-ups` frame and waits until the whole task ends; a second Enter (`enter steer`) delivers it at the next step. `prompt.sh` presses that Enter. A cursor that waits for a background command can look idle and still queue the prompt; `prompt.sh` sees the frame and does not send the text twice.
 
 ## codex
 
@@ -15,6 +15,8 @@ Contents: cursor, codex, claude, devin, grok, command-code (headless), permissio
 ## claude
 
 `--permission-mode auto` lets a classifier approve routine actions and block destructive ones, with no prompt. Stricter modes (`acceptEdits`, `manual`) leave the agent `blocked` on its first shell command; `watch.sh` reports that.
+
+A prompt sent while it works shows as `Queued · ctrl+enter to send now`. Without a key it is delivered when the current tool call ends, so a long shell command holds it. `prompt.sh` presses Ctrl+X Ctrl+S (the same send-now action as Ctrl+Enter, Claude Code 2.1.275 or newer). From 2.1.281 a running shell command then moves to the background and keeps running; text that the agent is writing at that moment is interrupted.
 
 ## devin
 

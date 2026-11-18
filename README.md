@@ -66,7 +66,7 @@ Model ids drift. `scripts/models.sh` asks each installed CLI for its live model 
 | ----------- | -------------------------------------------------------------------- |
 | `models.sh` | list the live model ids of each installed agent CLI |
 | `launch.sh` | start an agent (config entry or bare kind, optional `MODEL=`) in a pane, cwd = run dir |
-| `prompt.sh` | send a numbered task (own report, appended `finish.sh` line, optional `--replaces <agent>:<n>`) or a `--raw` nudge; flushes the queued-message Enter some agents need |
+| `prompt.sh` | send a numbered task (own report, appended `finish.sh` line, optional `--replaces <agent>:<n>`) or a `--raw` nudge; flushes the agent's message queue (Enter for cursor and devin, Ctrl+X Ctrl+S for claude) and prints `QUEUED` if the message is still not delivered |
 | `finish.sh` | the agent runs it as its last action: checks the task's report and writes `done-<n>` |
 | `watch.sh`  | background watcher for one task: exits on done, idle, blocked, gone, timeout, exited (raises a herdr notification) |
 | `command-code-run.sh` | runs one headless `cmd -p` task inside a command-code agent's pane |

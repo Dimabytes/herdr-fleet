@@ -7,9 +7,10 @@
 # --raw sends the text as is: no number, no report, the watcher of the current task keeps waiting.
 # A new task never closes an older one. --replaces <agent>:<n> does, explicitly: it writes work/<agent>/replaced-<n>
 # naming this task, so that task's watcher exits REPLACED and collect.sh waits for this task instead. History stays.
-# Some agents queue a prompt sent while working, so flush with one more Enter:
-# devin shows "Press Enter to send queued messages now"; cursor holds a follow-up until the whole task ends
-# and shows "enter steer", where Enter delivers it at the next step.
+# Some agents queue a prompt sent while working, so flush the queue until its marker leaves the screen (up to 4 tries):
+# devin shows "Press Enter to send queued messages now"; cursor holds a follow-up in a "follow-ups" frame until the
+# whole task ends ("enter steer": Enter delivers it at the next step); claude shows "ctrl+enter to send now" and
+# delivers on Ctrl+X Ctrl+S (the same action, plain control bytes). If the marker stays, the last line says QUEUED.
 # command-code (headless): each task is a new `cmd -p` run in the agent's pane.
 : ${R:?set R to the run dir}; R=${R:a}  # absolute: panes and command-code-run.sh resolve it from another cwd
 E=$(${0:A:h}/session.py) || exit 1; eval "$E"  # this agent's own herdr session, pinned in $R/herdr.env
@@ -61,14 +62,31 @@ status() { herdr agent get $N | python3 -c 'import json,sys; print(json.load(sys
 send() { herdr agent prompt $N "$TEXT" --wait --until working --until blocked --timeout 20000 >/dev/null; }
 # a failed send may still have reached the agent, so the number stays taken; send-failed-<n> tells collect.sh
 fail() { [ $RAW = 0 ] && : > $W/send-failed-$n; echo "prompt failed for $N (see error above)" >&2; exit 1; }
+Q_ENTER='send queued messages|enter steer|─ follow-ups ─'  # devin, cursor: Enter delivers
+Q_CLAUDE='ctrl\+enter to send now'                          # claude: Ctrl+X Ctrl+S delivers
+screen() { herdr agent read $N --source visible --lines 60 2>/dev/null; }
+queued() { screen | grep -qE "$Q_ENTER|$Q_CLAUDE"; }
+flush() {
+  local i s
+  for i in 1 2 3 4; do
+    s=$(screen)
+    if grep -qE "$Q_CLAUDE" <<< "$s"; then herdr agent send-keys $N ctrl+x ctrl+s >/dev/null
+    elif grep -qE "$Q_ENTER" <<< "$s"; then herdr agent send-keys $N enter >/dev/null
+    else return 0; fi
+    sleep ${PROMPT_SETTLE_S:-4}
+  done
+  ! queued
+}
 if [ "$(status)" = working ]; then
   # a working agent queues the prompt and may never report a new state: a resend would queue it twice
   herdr agent prompt $N "$TEXT" >/dev/null || fail
 else
-  send || { sleep 5; send; } || fail
+  # an agent that waits for a background command can look idle and still queue the prompt: then do not resend
+  send || queued || { sleep 5; send; } || queued || fail
 fi
 mark
 sleep ${PROMPT_SETTLE_S:-4}
-herdr agent read $N --source recent-unwrapped --lines 15 | grep -qE 'send queued messages|enter steer' && herdr agent send-keys $N enter >/dev/null
+flush; Q=$?
 [ $RAW = 0 ] && echo "task #$n sent; report: $F; wait: R=$R watch.sh $N $n"
 status
+[ $Q = 0 ] || echo "QUEUED $N: the message is still in the agent's queue after 4 tries. Read its screen before you continue."
